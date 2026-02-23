@@ -67,7 +67,7 @@
 - Threshold-based shipping (free above ₹5,000, else ₹299 flat fee; no carrier API in MVP)
 - INR only, English only
 - Manual fulfillment (admin enters tracking numbers)
-- No returns/refund workflow in MVP
+- No automated returns/refund workflow in MVP (handled manually via support/admin)
 
 ---
 

@@ -53,7 +53,7 @@ The Shree Furniture MVP is designed to deliver a **fully functional, production-
 |---|---------|----------|
 | C1 | Homepage with hero banner, featured products, category grid | P0 |
 | C2 | Category browsing with pagination | P0 |
-| C3 | Advanced product filters (price range, category, material, in-stock, rating) | P0 |
+| C3 | Advanced product filters (price range, category, material, in-stock) | P0 |
 | C4 | Product detail page (images gallery, specs, dimensions, materials, variants) | P0 |
 | C5 | Full-text search with debounced input | P0 |
 | C6 | Cart management (add, remove, update quantity, persist across sessions) | P0 |
