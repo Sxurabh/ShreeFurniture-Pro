@@ -720,7 +720,7 @@ pending_payment → payment_failed
 - **Payment:** Only Razorpay is supported. No PayPal, Stripe, or bank transfer in MVP.
 - **Currency:** INR only. No multi-currency.
 - **Language:** English only. No Hindi or regional language support in MVP.
-- **Shipping:** No real-time shipping rate calculation. Standard free delivery is the only option in MVP. Actual fulfillment is handled offline by the store team.
+- **Shipping:** No real-time shipping rate calculation. Threshold-based shipping: free above ₹5,000, else ₹299 flat fee. No real-time carrier API/rate calculation in MVP. Actual fulfillment is handled offline by the store team.
 - **Returns/Refunds:** No automated returns flow. Customer contacts via phone/email. Admin manually updates status.
 - **Tax:** GST calculation is simplified (single rate). Not GST-invoice-compliant in MVP (post-MVP scope).
 - **Inventory:** Single warehouse / single location inventory. No multi-location stock.

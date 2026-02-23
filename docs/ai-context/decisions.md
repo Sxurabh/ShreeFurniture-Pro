@@ -80,7 +80,7 @@ These decisions are **final**. Do not re-litigate, suggest alternatives, or devi
 | **Database** | Supabase Free (upgrade triggers documented) |
 | **Currency** | INR only (no multi-currency in MVP) |
 | **Language** | English only (no i18n in MVP) |
-| **Shipping** | Free flat rate, no carrier API (manual fulfillment) |
+| **Shipping** | Threshold-based: free above ₹5,000, else ₹299 flat fee; no carrier API (manual fulfillment) |
 | **Tax** | GST included in displayed price (not GST-invoice-compliant in MVP) |
 
 ---
