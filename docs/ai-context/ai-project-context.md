@@ -64,7 +64,7 @@
 
 - Single warehouse inventory (no multi-location in MVP)
 - GST included in displayed price (no breakdown invoice in MVP)
-- Free flat-rate shipping (no carrier API in MVP)
+- Threshold-based shipping (free above ₹5,000, else ₹299 flat fee; no carrier API in MVP)
 - INR only, English only
 - Manual fulfillment (admin enters tracking numbers)
 - No returns/refund workflow in MVP
@@ -81,7 +81,7 @@
 ├── /search?q=               Search results
 ├── /cart                    Cart
 ├── /checkout                Checkout
-│   └── /confirmation/[id]   Order confirmation
+│   └── /confirmation/[orderId]   Order confirmation
 └── /account                 (auth required)
     ├── /                    Profile
     ├── /orders              Order history

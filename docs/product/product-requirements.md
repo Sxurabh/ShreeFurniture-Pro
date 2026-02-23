@@ -93,6 +93,6 @@
 
 - Single warehouse inventory
 - GST inclusive pricing
-- Pan-India shipping (free above threshold)
+- Pan-India shipping (free above ₹5,000 threshold, else ₹299 flat fee)
 - Static delivery estimate (5–7 days)
 - Email notifications only (MVP)

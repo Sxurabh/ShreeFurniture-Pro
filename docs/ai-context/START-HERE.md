@@ -24,15 +24,18 @@ You are working on **Shree Furniture**, a furniture e-commerce platform.
 
 ### Phase Completion
 
+> Phase labels must match `/docs/source-of-truth/01-mvp-tech-document.md` and `/docs/engineering/development-phases.md`.
+
+
 | Phase | Name | Status |
 |-------|------|--------|
-| 0 | Setup & Schema | 🟡 In Progress |
+| 0 | Project Foundation (Setup & Schema) | 🟡 In Progress |
 | 1 | Core Customer Experience | ⬜ Not Started |
 | 2 | Payments & Orders | ⬜ Not Started |
 | 3 | Admin Dashboard | ⬜ Not Started |
-| 4 | SEO & Performance | ⬜ Not Started |
-| 5 | QA & Launch | ⬜ Not Started |
-| 6 | Post-Launch | ⬜ Not Started |
+| 4 | SEO, Performance & Polish | ⬜ Not Started |
+| 5 | QA, Security Audit & Launch | ⬜ Not Started |
+| 6 | Post-Launch Stabilization | ⬜ Not Started |
 
 ### Completed This Session
 - [ ] _(fill in before starting)_

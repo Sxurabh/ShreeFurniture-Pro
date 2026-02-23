@@ -58,11 +58,12 @@ Product
 
 / → homepage  
 /products → listing  
-/products/{category}  
-/products/{slug}  
+/products?category={slug}  
+/products/[slug]  
 /search?q=  
 /cart  
 /checkout  
+/checkout/confirmation/[orderId]  
 
 SEO:
 - keyword-rich slugs

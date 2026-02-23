@@ -399,7 +399,7 @@ export const useCartStore = create<CartStore>()(
 │   ├── /search              Search Results
 │   ├── /cart                Cart Page
 │   ├── /checkout            Checkout (auth optional)
-│   │   └── /confirmation/[id]
+│   │   └── /confirmation/[orderId]
 │   └── /account             (requires auth — middleware protected)
 │       ├── /                Profile
 │       ├── /orders

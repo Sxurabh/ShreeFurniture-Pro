@@ -28,4 +28,9 @@ Supabase free tier
 ## Monitoring
 Vercel analytics
 Supabase logs
-Sentry (future)
+Sentry (free tier)
+
+### Sentry Minimum Configuration Checklist
+- `SENTRY_DSN` configured in environment variables
+- Environment tagging enabled for `local`, `staging`, and `production`
+- Next.js app wrapped with Sentry integration and error boundary capture

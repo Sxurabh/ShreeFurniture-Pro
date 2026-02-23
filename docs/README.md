@@ -85,4 +85,5 @@ If docs appear to conflict, use this priority order:
 1. `/docs/ai-context/decisions.md` (final decisions)
 2. `/docs/architecture/database-schema.md` (canonical schema)
 3. `/docs/source-of-truth/02-system-design-document.md` (most detailed)
-4. All other docs
+4. Shipping policy details in `/docs/engineering/computation-logic-engine-spec.md`
+5. All other docs

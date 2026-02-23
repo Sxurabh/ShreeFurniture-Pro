@@ -191,6 +191,22 @@ interface VerifyPaymentResponse {
 5. Call Edge Function `send-order-email`
 6. Return orderId for redirect to confirmation page
 
+
+**Order lifecycle states (canonical):**
+
+| Status | When Set | Notes |
+|--------|----------|-------|
+| `pending_payment` | During `initiateCheckout` before Razorpay modal opens | Internal order is created before payment confirmation |
+| `confirmed` | After successful `verifyPayment` signature verification | Payment ID recorded; stock decremented; email triggered |
+| `processing` | Admin begins fulfillment | Operational state |
+| `shipped` | Admin dispatches shipment | `trackingNumber` required |
+| `out_for_delivery` | Carrier out-for-delivery update (manual/admin in MVP) | Optional operational state |
+| `delivered` | Order delivered | Terminal success state |
+| `cancelled` | Order cancelled by admin/system | Terminal cancellation state |
+| `payment_failed` | Payment failed (typically webhook backup path) | Retry may create a new payment attempt |
+| `refunded` | Refund completed | Terminal refund state |
+
+
 ---
 
 ## Profile Actions

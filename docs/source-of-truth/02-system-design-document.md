@@ -192,11 +192,11 @@ Server Action: verifyPayment()
     Valid   Invalid
         │     │
         ▼     ▼
-  Create order  Return error
-  in DB         (do not create order)
+  Update order status to confirmed  Return error
+  (order already pending_payment)   (do not confirm order)
   Clear cart
   Send confirmation email (Resend)
-  Redirect to /order-confirmation/[orderId]
+  Redirect to /checkout/confirmation/[orderId]
 ```
 
 ### 2.4 Razorpay Webhook Flow (Backup Mechanism)
