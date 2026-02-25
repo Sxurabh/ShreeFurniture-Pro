@@ -109,14 +109,15 @@ Do not propose or build these — they are Phase 2/3:
 
 | Doc | When to Read |
 |---|---|
-| `docs/01-product-requirements.md` | Before building any feature — check scope |
-| `docs/04-system-architecture.md` | Before making infra or rendering decisions |
-| `docs/05-database-schema.md` | Before writing any DB query or migration |
-| `docs/06-api-contracts.md` | Before calling any Medusa API endpoint |
-| `docs/07-monorepo-structure.md` | Before creating new files or folders |
-| `docs/08-cart-pricing-engine-spec.md` | Before touching cart, pricing, or checkout logic |
-| `docs/09-engineering-scope-definition.md` | When unsure if something should be built |
-| `docs/10-development-phases.md` | To check what milestone we're in |
+| `NewDocs/README.md` | Read first — canonical doc index, loading order, anti-drift rules |
+| `NewDocs/01-product-requirements.md` | Before building any feature — check scope |
+| `NewDocs/04-system-architecture.md` | Before making infra or rendering decisions |
+| `NewDocs/05-database-schema.md` | Before writing any DB query or migration |
+| `NewDocs/06-api-contracts.md` | Before calling any Medusa API endpoint |
+| `NewDocs/07-monorepo-structure.md` | Before creating new files or folders |
+| `NewDocs/08-cart-pricing-engine-spec.md` | Before touching cart, pricing, or checkout logic |
+| `NewDocs/09-engineering-scope-definition.md` | When unsure if something should be built |
+| `NewDocs/10-development-phases.md` | To check what milestone we're in |
 
 ---
 
