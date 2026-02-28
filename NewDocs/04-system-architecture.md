@@ -1,279 +1,239 @@
 # 04 — System Architecture
 ## Shree Furniture | E-Commerce Platform
 
-> **Version:** 1.0 | **Scope:** Full system design, layers, data flows, deployment topology
+> **Version:** 1.0 | **Status:** Active
+> This document was converted from diagram format to text + Mermaid for AI readability.
 
 ---
 
-## 1. Architecture Principles
+## 1. Architecture Philosophy
 
-**Headless Commerce** — The Next.js storefront is fully decoupled from MedusaJS. They communicate only via REST API over HTTPS. This enables independent deployment and future mobile app support from the same API layer.
-
-**Performance-First** — Every architectural decision is evaluated against Core Web Vitals. ISR, CDN delivery, Redis caching, and React Server Components are core constraints, not optional optimisations.
-
-**Owned Infrastructure** — MedusaJS is self-hosted (not SaaS). PostgreSQL is directly managed. No per-transaction fees; the business owns all commerce data and logic.
+**Headless Commerce.** The storefront has zero direct database access. It knows nothing about PostgreSQL, Redis, or internal Medusa data models. All data flows through the MedusaJS REST API only. This means:
+- The frontend and backend can be deployed, scaled, and failed independently.
+- The storefront can be replaced entirely without touching business logic.
+- API contracts (doc 06) are the binding interface between the two.
 
 ---
 
-## 2. Architecture Layers
+## 2. High-Level System Diagram
+
+```mermaid
+graph TB
+  subgraph Client["Browser / Mobile"]
+    Browser["Customer Browser"]
+  end
+
+  subgraph Vercel["Vercel (Edge + Serverless)"]
+    NextJS["Next.js 15 App Router\n(apps/storefront)"]
+    ISR["ISR Cache\n(CDN Edge)"]
+    Webhook["Razorpay Webhook\n/api/webhooks/razorpay"]
+  end
+
+  subgraph Railway["Railway.app"]
+    Medusa["MedusaJS v2\n(backend/)"]
+    MedusaAdmin["Medusa Admin\n/admin"]
+  end
+
+  subgraph Neon["Neon.tech"]
+    Postgres["PostgreSQL 16\n(primary data store)"]
+  end
+
+  subgraph Upstash["Upstash"]
+    Redis["Redis 7\n(sessions + cart TTL + queue)"]
+  end
+
+  subgraph ThirdParty["Third-Party Services"]
+    Razorpay["Razorpay\n(payments)"]
+    Cloudinary["Cloudinary CDN\n(images)"]
+    Algolia["Algolia\n(search)"]
+    Resend["Resend\n(email)"]
+    PostHog["PostHog\n(analytics)"]
+    Sentry["Sentry\n(errors)"]
+  end
+
+  Browser --> Vercel
+  Vercel --> ISR
+  NextJS -- "REST API (store)" --> Medusa
+  Webhook -- "HMAC verified POST" --> Medusa
+  Medusa --> Postgres
+  Medusa --> Redis
+  Medusa --> Razorpay
+  Medusa --> Cloudinary
+  Medusa --> Algolia
+  Medusa --> Resend
+  MedusaAdmin --> Medusa
+  NextJS --> PostHog
+  NextJS --> Sentry
+  NextJS --> Algolia
+```
+
+---
+
+## 3. Data Flow: Product Page Request
+
+This is the most common request type and illustrates ISR caching:
+
+```mermaid
+sequenceDiagram
+  participant Browser
+  participant Vercel_Edge as Vercel Edge (CDN)
+  participant NextJS as Next.js Server
+  participant Medusa as MedusaJS v2
+  participant Postgres as PostgreSQL
+
+  Browser->>Vercel_Edge: GET /products/oslo-3-seater-sofa
+  Vercel_Edge-->>Browser: Serve ISR cached HTML (if < 60s old)
+
+  Note over Vercel_Edge: If cache is stale (> 60s):
+  Vercel_Edge->>NextJS: Trigger background revalidation
+  NextJS->>Medusa: GET /store/products?handle=oslo-3-seater-sofa
+  Medusa->>Postgres: SELECT product + variants + images
+  Postgres-->>Medusa: Product data
+  Medusa-->>NextJS: Product JSON
+  NextJS-->>Vercel_Edge: New rendered HTML
+  Vercel_Edge-->>Browser: New HTML (next request)
+```
+
+**Key rules:**
+- PDP, PLP, and Homepage all use `revalidate = 60` (60-second ISR).
+- On product publish/update via Medusa Admin, an Algolia sync subscriber calls the storefront's `/api/revalidate` endpoint to force **immediate** cache invalidation.
+- Search results (`/search`) are CSR — no ISR. Algolia handles freshness.
+- Cart and checkout pages are CSR — no ISR.
+
+---
+
+## 4. Data Flow: Checkout & Payment
+
+```mermaid
+sequenceDiagram
+  participant Browser
+  participant NextJS as Next.js
+  participant Medusa as MedusaJS v2
+  participant Razorpay as Razorpay
+  participant Postgres as PostgreSQL
+
+  Browser->>Medusa: POST /store/carts (create cart)
+  Browser->>Medusa: POST /store/carts/:id/line-items (add items)
+  Browser->>Medusa: POST /store/carts/:id (set email + address)
+  Browser->>Medusa: POST /store/carts/:id/shipping-methods
+  Browser->>Medusa: POST /store/carts/:id/payment-sessions (init Razorpay)
+  Medusa-->>Browser: payment_session with Razorpay order_id
+
+  Browser->>Razorpay: Open Razorpay JS modal (order_id)
+  Razorpay-->>Browser: Payment captured → razorpay_payment_id
+
+  Browser->>Medusa: POST /store/carts/:id/complete
+  Medusa->>Postgres: Create order record
+  Medusa-->>Browser: { type: "order", data: { id, display_id } }
+
+  Note over Razorpay,NextJS: Async: Razorpay sends webhook
+  Razorpay->>NextJS: POST /api/webhooks/razorpay (HMAC signed)
+  NextJS->>NextJS: Verify HMAC signature
+  NextJS->>Postgres: Check idempotency (event_id already processed?)
+  NextJS->>Medusa: Capture payment if not yet processed
+  Medusa->>Medusa: Trigger order.placed subscriber → send email
+```
+
+**Key rules:**
+- `unit_price` on each line item is a **snapshot** taken at the moment the item is added.
+- Webhook handler at `/api/webhooks/razorpay/route.ts` must be idempotent.
+- Cart `complete()` is the single trigger for order creation — never create orders directly.
+
+---
+
+## 5. Rendering Strategy by Page
+
+| Page | Strategy | Rationale |
+|---|---|---|
+| Homepage (`/`) | ISR — `revalidate: 60` | SEO-critical; content changes infrequently |
+| PLP (`/collections/[handle]`) | ISR — `revalidate: 60` | SEO-critical; catalogue updates via admin, not real-time |
+| PDP (`/products/[handle]`) | ISR — `revalidate: 60` | SEO most important here; stock changes tolerated at 60s lag |
+| Search (`/search`) | CSR (Algolia InstantSearch) | Needs real-time results; not crawled by SEO |
+| Cart (`/cart`) | CSR | User-specific, not cacheable |
+| Checkout (`/checkout/*`) | CSR | Authenticated + user-specific |
+| Order Confirm (`/order/confirm/[id]`) | SSR | Fresh per-request; shows live order status |
+| Account pages (`/account/*`) | CSR | Authenticated; all user-specific data |
+
+---
+
+## 6. Monorepo Build Dependency Graph
+
+```mermaid
+graph LR
+  types["packages/types"]
+  ui["packages/ui"]
+  storefront["apps/storefront"]
+  backend["backend/"]
+
+  types --> storefront
+  types --> backend
+  ui --> storefront
+```
+
+**Build order enforced by Turborepo:** `packages/types` and `packages/ui` must build before `apps/storefront` and `backend/`.
+
+---
+
+## 7. Infrastructure: Phase 1 (MVP) vs Phase 2
+
+| Layer | Phase 1 (MVP) | Phase 2 |
+|---|---|---|
+| Storefront hosting | Vercel (free/pro) | Vercel (stays) |
+| Backend hosting | Railway.app | Hetzner VPS (Docker) |
+| Database | Neon.tech (serverless PG) | Hetzner VPS (PostgreSQL container) |
+| Redis | Upstash (serverless) | Hetzner VPS (Redis container) |
+| Search | Algolia (free tier) | MeiliSearch (self-hosted on VPS) |
+| Nginx | N/A | Reverse proxy on VPS |
+
+---
+
+## 8. Security Boundaries
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│  LAYER 1 — PRESENTATION                                                 │
-│  Next.js 15 (App Router) · TypeScript · Tailwind CSS · shadcn/ui       │
-│  Framer Motion · Zustand · TanStack Query v5 · React Hook Form + Zod   │
-│  Vercel Edge Network (Phase 1) / PM2 on Hetzner VPS (Phase 2)          │
-└───────────────────────────────┬────────────────────────────────────────┘
-                                │ REST API over HTTPS
-┌───────────────────────────────▼────────────────────────────────────────┐
-│  LAYER 2 — COMMERCE ENGINE                                               │
-│  MedusaJS v2 · Node.js 20 LTS                                           │
-│  Products · Cart · Orders · Customers · Payments · Inventory            │
-│  Railway.app (Phase 1) / PM2 on VPS (Phase 2)                          │
-└──────────┬──────────────────────────────────────┬──────────────────────┘
-           │                                      │
-┌──────────▼─────────────┐            ┌───────────▼────────────────────┐
-│  LAYER 3A — PRIMARY DB  │            │  LAYER 3B — CACHE & QUEUE      │
-│  PostgreSQL 16          │            │  Redis 7                        │
-│  Neon.tech (Phase 1)    │            │  Sessions, cart, rate limits,  │
-│  VPS internal (Phase 2) │            │  background job queue           │
-└────────────────────────┘            │  Upstash (Phase 1) / VPS (P2)  │
-                                       └────────────────────────────────┘
-┌──────────────────────────────────────────────────────────────────────┐
-│  LAYER 4 — EXTERNAL INTEGRATIONS                                       │
-│  Razorpay (Payments) · Cloudinary (Media CDN) · Resend (Email)        │
-│  Algolia (Search, Phase 1) · MeiliSearch (Search, Phase 2)            │
-│  PostHog (Analytics) · Sentry (Error tracking)                        │
-└──────────────────────────────────────────────────────────────────────┘
-┌──────────────────────────────────────────────────────────────────────┐
-│  LAYER 5 — EDGE & INFRASTRUCTURE                                       │
-│  Cloudflare CDN + WAF + DDoS · Nginx reverse proxy (Phase 2)          │
-│  GitHub Actions CI/CD · PM2 process manager · Certbot SSL             │
-└──────────────────────────────────────────────────────────────────────┘
+PUBLIC (no auth required):
+  GET  /store/products
+  GET  /store/products/:handle
+  GET  /store/collections
+  POST /store/carts
+  POST /store/carts/:id/line-items
+  GET  /store/regions
+  GET  /store/shipping-options
+
+AUTHENTICATED (customer session cookie required):
+  GET  /store/customers/me
+  POST /store/customers/me/addresses
+  GET  /store/orders
+
+ADMIN (Medusa Admin JWT required — different auth):
+  All  /admin/*
+
+WEBHOOK (HMAC signature required — no user auth):
+  POST /api/webhooks/razorpay
 ```
 
 ---
 
-## 3. Rendering Strategy
+## 9. Environment Variable Matrix
 
-| Route | Mode | Revalidation | Reason |
+| Variable | Used By | Public? | Notes |
 |---|---|---|---|
-| `/` | ISR | 60 seconds | High traffic; content infrequently changes |
-| `/collections/[handle]` | ISR | 60 seconds | SEO-critical; filters are client-side |
-| `/products/[handle]` | ISR | 60 seconds | SEO-critical; stale price/stock is acceptable |
-| `/checkout` | CSR (dynamic) | Real-time | Payment state cannot be cached |
-| `/account/*` | SSR (per request) | Per request | Personalised; authentication required |
-| `/order/confirm/[id]` | SSR (per request) | Per request | Order data must be fresh |
-| `/api/webhooks/*` | Edge API Route | Stateless | Low-latency, stateless processing |
+| `DATABASE_URL` | Backend only | ❌ No | PostgreSQL connection string |
+| `REDIS_URL` | Backend only | ❌ No | Redis connection string |
+| `JWT_SECRET` | Backend only | ❌ No | MedusaJS JWT signing |
+| `COOKIE_SECRET` | Backend only | ❌ No | MedusaJS cookie signing |
+| `RAZORPAY_SECRET` | Backend only | ❌ No | Razorpay API secret |
+| `RAZORPAY_WEBHOOK_SECRET` | Storefront webhook handler | ❌ No | HMAC verification |
+| `CLOUDINARY_API_SECRET` | Backend only | ❌ No | |
+| `ALGOLIA_WRITE_API_KEY` | Backend (sync) | ❌ No | Write-access key |
+| `RESEND_API_KEY` | Backend only | ❌ No | |
+| `REVALIDATION_SECRET` | Storefront server | ❌ No | ISR on-demand revalidation |
+| `NEXT_PUBLIC_MEDUSA_BACKEND_URL` | Storefront | ✅ Yes | Backend API URL |
+| `NEXT_PUBLIC_RAZORPAY_KEY_ID` | Storefront (Razorpay modal) | ✅ Yes | Confirmed public by Razorpay docs |
+| `NEXT_PUBLIC_ALGOLIA_APP_ID` | Storefront (search) | ✅ Yes | |
+| `NEXT_PUBLIC_ALGOLIA_SEARCH_KEY` | Storefront (search) | ✅ Yes | Read-only search key only |
+| `NEXT_PUBLIC_POSTHOG_KEY` | Storefront (analytics) | ✅ Yes | |
+| `NEXT_PUBLIC_SENTRY_DSN` | Storefront (errors) | ✅ Yes | |
 
 ---
 
-## 4. State Management Architecture
-
-```
-Application State Split:
-
-Server State (TanStack Query v5)         Client State (Zustand)
-──────────────────────────────           ──────────────────────
-• Products list + filters                • Cart items (optimistic updates)
-• Product detail + variants              • Cart drawer open/closed
-• Search results                         • Wishlist items (UI cache)
-• Order history                          • Active filter selections
-• Customer profile + addresses           • Modal / overlay state
-• Shipping options
-```
-
----
-
-## 5. Critical Data Flows
-
-### 5.1 Product Discovery
-
-```
-User visits PLP
-  → Next.js serves ISR-cached page (TTFB < 600ms)
-  → Client: TanStack Query hydrates filter options from Medusa REST API
-  → User applies filter → debounced API call → Medusa queries PostgreSQL
-  → Algolia powers instant search results via InstantSearch hooks
-  → Images served from Cloudinary CDN (WebP/AVIF, responsive widths)
-  → Filter state written to URL query params (shareable)
-```
-
-### 5.2 Add to Cart
-
-```
-User clicks "Add to Cart"
-  → Zustand cart state updated immediately (optimistic)
-  → POST /store/carts/:id/line-items (Medusa REST)
-  → Cart persisted to Redis (key: cart:{cart_id}, TTL: 7 days)
-  → On error: optimistic update rolled back, error toast shown
-  → CartDrawer opens automatically
-```
-
-### 5.3 Checkout & Payment
-
-```
-User proceeds to Checkout
-  → POST /store/carts/:id/payment-sessions
-  → MedusaJS Razorpay plugin → Razorpay Orders API
-  → razorpay_order_id, amount, currency, key_id returned to client
-
-User interacts with Razorpay checkout modal
-  → Razorpay JS SDK handles payment UI
-
-Payment completed by Razorpay
-  → POST /api/webhooks/razorpay (Razorpay fires webhook)
-  → HMAC-SHA256 signature verified (reject 400 if invalid)
-  → Idempotency check: order already processed? Skip.
-  → POST /store/carts/:id/complete (Medusa → creates Order)
-  → order.placed event → Redis queue → Resend email subscriber fires
-  → Client polls /store/orders/:id for confirmation
-  → Redirect to /order/confirm/:id
-```
-
-### 5.4 Authentication
-
-```
-Register: POST /store/customers
-  → Medusa creates customer in PostgreSQL
-  → JWT issued → HTTP-only, Secure, SameSite=Strict cookie
-
-Login: POST /store/customers/auth
-  → Credentials validated → JWT issued
-  → Session cached in Redis (key: session:{customer_id}, TTL: 24h)
-  → All subsequent requests authenticate via cookie
-  → Medusa middleware validates JWT and attaches customer context
-```
-
-### 5.5 Media Upload & Delivery
-
-```
-Admin uploads image via Medusa Admin
-  → Cloudinary Upload API → auto-converts to WebP + AVIF
-  → Responsive variants generated: 400w, 800w, 1200w
-  → CDN URL stored in product_image table
-
-Storefront Next/Image request
-  → Cloudinary URL with transform params (f_auto, q_auto, w_{width})
-  → Cloudflare CDN cache check → hit: edge-served
-  → Cache miss → Cloudinary generates + returns → Cloudflare caches
-```
-
----
-
-## 6. Redis Cache Schema
-
-| Key Pattern | TTL | Purpose |
-|---|---|---|
-| `cart:{cart_id}` | 7 days | Cart persistence across sessions |
-| `session:{customer_id}` | 24 hours | Auth session token validation |
-| `rate_limit:{ip}:{route}` | 1 minute | Per-IP rate limiting |
-| `search:{query_hash}` | 5 minutes | Search result caching |
-
----
-
-## 7. Event-Driven Queue (Redis via MedusaJS Event Bus)
-
-| Event | Subscriber | Action |
-|---|---|---|
-| `order.placed` | `OrderConfirmationSubscriber` | Send confirmation email via Resend |
-| `order.shipment_created` | `ShipmentNotificationSubscriber` | Send shipping notification email |
-| `customer.password_reset` | `PasswordResetSubscriber` | Send OTP/reset link email |
-| `customer.created` | `WelcomeEmailSubscriber` | Send welcome email |
-| `inventory.low_stock` | `LowStockSubscriber` | Alert admin via email |
-| `product.created` / `product.updated` | `AlgoliaIndexSubscriber` | Sync product to Algolia index |
-
----
-
-## 8. Security Architecture
-
-| Layer | Control | Implementation |
-|---|---|---|
-| Transport | HTTPS everywhere | Cloudflare SSL + Certbot (VPS) |
-| Authentication | JWT in HTTP-only cookies | Medusa auth middleware |
-| Payment webhooks | HMAC-SHA256 verification | Razorpay plugin + custom handler |
-| API rate limiting | Redis per-IP limits | `/store/auth` (5/15min), `/store/carts/complete` (3/min) |
-| Database | Not publicly exposed | Bound to `127.0.0.1` (VPS); Neon private pool (Phase 1) |
-| WAF | Cloudflare WAF rules | OWASP ruleset; bot challenge |
-| Secrets | Environment variables only | `.env.local`; never committed to Git |
-| Dependencies | Automated audit | `npm audit` runs in every CI pipeline |
-| Backups | Daily `pg_dump` | Stored on Backblaze B2 |
-| Admin routes | IP allowlist (Phase 2) | Nginx `allow` directive for `/admin/*` |
-
----
-
-## 9. Deployment Topology
-
-### Phase 1 — Managed Free Tier
-
-```
-Cloudflare DNS + CDN + WAF
-  ├── Vercel Edge Network
-  │     └── Next.js 15 Storefront
-  └── Railway.app
-        └── MedusaJS v2 (Node.js 20)
-              ├── Neon.tech (PostgreSQL 16, serverless)
-              └── Upstash (Redis 7, serverless)
-
-External: Cloudinary · Algolia · Resend · PostHog · Sentry
-```
-
-### Phase 2 — Hetzner CX31 VPS (Ubuntu 22.04)
-
-```
-Cloudflare CDN + WAF + DDoS
-  └── Nginx (reverse proxy + Certbot SSL)
-        ├── /*         → Next.js (PM2, :3000)
-        ├── /api/*     → MedusaJS (PM2, :9000)
-        └── /admin/*   → Medusa Admin (PM2, :7001)
-
-VPS internal (127.0.0.1 only):
-  ├── PostgreSQL 16 (:5432)
-  ├── Redis 7       (:6379, requirepass set)
-  └── MeiliSearch   (:7700)  [replaces Algolia]
-
-Monitoring: Netdata (:19999) · Uptime Kuma (HTTP checks every 60s)
-```
-
-### CI/CD Pipeline
-
-```
-PR opened
-  → GitHub Actions CI:
-      tsc --noEmit → eslint + prettier → vitest run → next build
-
-Merge to main
-  → GitHub Actions Deploy:
-      Build Next.js → Deploy to Vercel (storefront)
-      SSH to VPS → git pull → npm ci → pm2 reload medusa
-      npx medusa db:migrate → pm2 reload storefront
-      Smoke tests: /api/health check + checkout flow ping
-```
-
----
-
-## 10. Core Web Vitals Architecture Map
-
-| Metric | Target | How It's Achieved |
-|---|---|---|
-| LCP | < 2.5s | ISR caching, `priority` image loading, Cloudflare CDN |
-| INP | < 200ms | RSC reduces client JS; Zustand minimises re-renders |
-| CLS | < 0.1 | Explicit image dimensions; skeleton loaders match layout |
-| TTFB | < 600ms | Edge middleware, Redis-cached responses, Vercel edge |
-| Bundle | < 200KB | Dynamic imports for below-fold; Tailwind tree-shaking |
-
----
-
-## 11. Disaster Recovery
-
-| Scenario | Detection | Recovery | RTO |
-|---|---|---|---|
-| DB corruption | Netdata + app errors | Restore from latest pg_dump (Backblaze B2) | < 2 hours |
-| VPS failure | Uptime Kuma alert | Redeploy to new Hetzner instance via scripts | < 4 hours |
-| Webhook loss | Order stuck "pending" | Manual replay via Razorpay dashboard | < 1 hour |
-| Vercel deploy failure | GitHub Actions alert | 1-click rollback in Vercel dashboard | < 15 minutes |
-| Redis data loss | Cart/session errors | Carts rebuilt from PostgreSQL; sessions require re-login | < 30 minutes |
-
----
-
-*Owner: Engineering Lead | Shree Furniture | v1.0 — Q1 2026*
+*Shree Furniture | v1.1 — Q1 2026 | Converted from binary diagram to Mermaid*
