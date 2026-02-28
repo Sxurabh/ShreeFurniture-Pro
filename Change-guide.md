@@ -1,4 +1,3 @@
-# Change Management Guide — Shree Furniture
 ## How to Make Any Change and Keep AI Agents in Sync
 
 > **The problem this solves:** You build something, don't like it, ask the AI to change it.
@@ -399,20 +398,31 @@ I want a 30-second briefing on project state before continuing.
 ## Part 7 — File Placement
 
 ```
-shreefurniture-pro/
-├── CLAUDE.md              ← Auto-loaded by AI — hard rules
-├── STATUS.md              ← Current build state
-├── PREFERENCES.md         ← YOUR TASTE LAYER (new file) ← place here
-├── REJECTIONS.md          ← Never-again log (new file)   ← place here
-├── STACK-CHANGES.md       ← Tech change log (new file)   ← place here
-├── DECISIONS.md           ← Original ADRs
-├── CONVENTIONS.md         ← Code style rules
-└── PROMPT-GUIDE.md        ← Copy-paste prompts
+shreefurniture-pro/               ← monorepo root
+├── CLAUDE.md                     ← Auto-loaded by AI — hard rules + tech stack
+├── STATUS.md                     ← Current build state (update every session)
+├── PREFERENCES.md                ← Your design taste layer — fill in as you build
+├── REJECTIONS.md                 ← Never-again log — fill in as you reject things
+├── STACK-CHANGES.md              ← Tech change log — fill in if you swap a library
+├── CHANGE-GUIDE.md               ← This file — how to make any change
+├── PROMPT-GUIDE-v2.md            ← Copy-paste prompts for every build task
+├── PLACEMENT-GUIDE.md            ← Where every file lives (reference)
+├── .env.example                  ← All required environment variables
+└── NewDocs/                      ← All architecture + product specs live here
+    ├── README.md                 ← Loading order + conflict resolution policy
+    ├── CLAUDE.md                 ← (same as root CLAUDE.md — kept in sync)
+    ├── DECISIONS.md              ← Architecture Decision Records (ADRs)
+    ├── CONVENTIONS.md            ← Naming, code style, import order
+    ├── KNOWN-ISSUES.md           ← Gotchas log
+    ├── MEDUSA-V2-PATTERNS.md     ← MedusaJS v2 patterns reference
+    ├── 01-product-requirements.md
+    ├── 02–12 ...
+    └── 13-design-system.md       ← Component specs, tokens, interaction states
 ```
 
-All four new files go at the monorepo root alongside CLAUDE.md. They'll be read
-automatically by agents that are instructed to read all root-level markdown files
-at session start.
+**Note:** `DECISIONS.md` and `CONVENTIONS.md` live in `NewDocs/` — NOT at the root.
+The three change-management files (`PREFERENCES.md`, `REJECTIONS.md`, `STACK-CHANGES.md`)
+live at the root so AI agents auto-load them alongside `CLAUDE.md`.
 
 ---
 
@@ -423,7 +433,7 @@ Your current session start prompt:
 Read STATUS.md and CLAUDE.md first.
 ```
 
-**Update it to:**
+**Your session start prompt (copy this into Antigravity/Cursor/Claude Code):**
 ```
 Read these files before doing anything:
 1. STATUS.md — current build state
@@ -431,13 +441,19 @@ Read these files before doing anything:
 3. PREFERENCES.md — my design preferences (these override agent defaults)
 4. REJECTIONS.md — patterns I've explicitly rejected (never suggest these)
 5. STACK-CHANGES.md — if it has entries, those supersede CLAUDE.md tech stack
+6. NewDocs/README.md — loading order and conflict resolution policy
 
 Tell me: current phase, last completed item, any active rejections or stack changes I should know about.
 Do not write any code yet.
 ```
+
+When you're ready to build, open `PROMPT-GUIDE-v2.md` and copy-paste the next prompt.
 
 This one change to your session start makes EVERY session aware of your preferences from minute one.
 
 ---
 
 *Owner: [Your Name] | Last updated: [date] | Place at: shreefurniture-pro/CHANGE-GUIDE.md*
+
+
+================================================
