@@ -162,7 +162,12 @@ These are Phase 2/3 features. If you find yourself about to implement any of the
 | Write any backend code | `NewDocs/MEDUSA-V2-PATTERNS.md` |
 | Hit something unexpected | `NewDocs/KNOWN-ISSUES.md` |
 | Write any code at all | `NewDocs/CONVENTIONS.md` |
-
+| Touch any Razorpay payment, webhook, or refund | `NewDocs/14-razorpay-integration-spec.md` |
+| Build or modify Algolia search, sync, or index | `NewDocs/15-algolia-schema.md` |
+| Write any email template or subscriber | `NewDocs/16-email-templates-spec.md` |
+| Build any form, address input, or price display | `NewDocs/17-india-specific-guide.md` |
+| Use any product image or Cloudinary URL | `NewDocs/18-cloudinary-guide.md` |
+| Build any frontend component or page (read first) | `NewDocs/design-reference.md` — IKEA design baseline |
 ---
 
 ## Design Tokens Quick Reference

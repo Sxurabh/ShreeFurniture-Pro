@@ -2453,6 +2453,12 @@ STATUS.md                            Current build state — read at start, upda
 PREFERENCES.md                       Your design taste — all UI agents read this first
 REJECTIONS.md                        Never-again log — agents read before any suggestion
 STACK-CHANGES.md                     Mid-project tech changes — supersede CLAUDE.md entries
+14 — razorpay-integration-spec.md   Razorpay config, modal options, webhook events, HMAC, refunds
+15 — algolia-schema.md              Index record schema, sync subscriber, index settings, replicas
+16 — email-templates-spec.md        All 5 email templates — variables, layout, subject lines
+17 — india-specific-guide.md        Phone/PIN validation, states list, GST display, Indian date format
+18 — cloudinary-guide.md            Folder naming, transformation presets, Next.js image loader
+design-reference.md                 IKEA-inspired visual language — read before any frontend work
 ```
 
 ---

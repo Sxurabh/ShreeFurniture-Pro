@@ -1,15 +1,22 @@
 # PREFERENCES.md — Shree Furniture
 ## Owner's Personal Design & UX Taste Layer
 
+> **Visual source of truth hierarchy — read in this order:**
+> 1. `NewDocs/design-reference.md` — IKEA-inspired baseline (the visual foundation for all components)
+> 2. `NewDocs/13-design-system.md` — component specs and design tokens
+> 3. This file (`PREFERENCES.md`) — **wins over both files above** when there is any conflict
+>
+> **AI Agents:** Read `NewDocs/design-reference.md` first to understand the design language.
+> Then read this file. Any entry here overrides the baseline. If this file is silent on a topic,
+> fall back to `design-reference.md`, then `13-design-system.md`.
+>
 > **What this file is:** Your living design diary. Every time you see something the AI built
 > and think "I don't like this," write it here. Every future session will read this file
 > BEFORE generating any UI, so the same mistake never happens twice.
 >
 > **What this file is NOT:** Technical specs (those are in NewDocs/). Architecture decisions
-> (those are in DECISIONS.md). This is purely your personal taste.
->
-> **AI Agents: Read this file before generating any frontend code.**
-> These preferences override the generic patterns in your skill files.
+> (those are in DECISIONS.md). This is purely your personal taste — overrides only.
+```
 
 ---
 

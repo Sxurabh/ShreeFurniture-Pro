@@ -25,11 +25,13 @@ Before responding to ANY request in this project, you MUST read all of these **i
 3. **`REJECTIONS.md`** — patterns explicitly rejected by the owner (never suggest these)
 4. **`STACK-CHANGES.md`** — if entries exist, they supersede CLAUDE.md tech stack table
 5. **`CLAUDE.md`** — hard technical rules (read after checking for stack overrides)
+6. **`NewDocs/design-reference.md`** — IKEA-inspired design baseline (**frontend work only** — read before generating any component, page, or UI element)
 
 Then identify the current phase from `STATUS.md` before proposing anything.
 
 **Failure to check `STATUS.md` = regenerating already-built code. Critical failure.**
 **Failure to check `REJECTIONS.md` = suggesting something the owner already rejected. Also a failure.**
+**Failure to check `design-reference.md` before frontend work = components that don't match the visual language. Also a failure.**
 
 ---
 

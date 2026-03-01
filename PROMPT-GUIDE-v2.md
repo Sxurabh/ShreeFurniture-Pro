@@ -1,9 +1,12 @@
 # Shree Furniture — Complete AI Prompt Guide
-## Antigravity / Claude Code | Start-to-Deployment | v2.0
+## Antigravity / Claude Code | Start-to-Deployment | v2.1
 
 > **How to use:** Find your situation, copy the prompt, fill `[brackets]`, paste into Antigravity.
 > Your stack is already in CLAUDE.md — never explain it in a prompt again.
 > Every prompt that builds something ends with: **"Update STATUS.md when done."**
+>
+> **v2.1 changes:** Razorpay config corrected, Algolia schema updated to per-variant indexing,
+> all 6 new NewDocs files (14–18, design-reference) referenced throughout, 4 new prompts added.
 
 ---
 
@@ -43,7 +46,7 @@
 
 ### Standard Session Start
 ```
-Read these files before doing anything:
+Read these files in order before doing anything:
 
 1. STATUS.md        ← What's already built
 2. PREFERENCES.md   ← Design taste overrides
@@ -60,7 +63,13 @@ Do not write any code yet.
 
 ### Session Start With a Specific Goal
 ```
-Read STATUS.md, CLAUDE.md, PREFERENCES.md, REJECTIONS.md, and STACK-CHANGES.md first.
+Read these files in order before doing anything:
+1. STATUS.md
+2. PREFERENCES.md
+3. REJECTIONS.md
+4. STACK-CHANGES.md
+5. CLAUDE.md
+
 Today's goal: [what you want to accomplish]
 Check REJECTIONS.md — confirm this feature/approach hasn't already been rejected.
 Confirm this goal is in scope for the current phase before we start.
@@ -68,8 +77,13 @@ Confirm this goal is in scope for the current phase before we start.
 
 ### Resuming After a Gap (Days/Weeks)
 ```
-Read these files before doing anything:
-STATUS.md, CLAUDE.md, PREFERENCES.md, REJECTIONS.md, STACK-CHANGES.md, NewDocs/KNOWN-ISSUES.md
+Read these files in order before doing anything:
+1. STATUS.md
+2. PREFERENCES.md
+3. REJECTIONS.md
+4. STACK-CHANGES.md
+5. CLAUDE.md
+6. NewDocs/KNOWN-ISSUES.md
 
 Summarise:
 - Current phase and last completed item
@@ -179,14 +193,14 @@ Configure:
    images: {
      remotePatterns: [{ protocol: 'https', hostname: 'res.cloudinary.com' }]
    }
+   Also configure the custom Cloudinary loader — see NewDocs/18-cloudinary-guide.md §5.
 
 2. Sentry wrapper (wraps the entire config):
    import { withSentryConfig } from "@sentry/nextjs"
-   — widenClientFileUpload: true, hideSourceMaps: true (source maps uploaded but not shipped to browser)
+   — widenClientFileUpload: true, hideSourceMaps: true
 
 3. Bundle analyzer (enabled only when ANALYZE=true):
    import withBundleAnalyzer from "@next/bundle-analyzer"
-   const withBundleAnalyzer = require('@next/bundle-analyzer')({ enabled: process.env.ANALYZE === 'true' })
 
 4. Turbopack for dev (Next.js 15 default):
    experimental: { turbo: {} }
@@ -234,12 +248,13 @@ Update STATUS.md when done.
 ```
 @backend-specialist Configure the MedusaJS v2 backend in backend/medusa-config.ts.
 Ref: NewDocs/MEDUSA-V2-PATTERNS.md for correct v2 config syntax.
+Ref: NewDocs/14-razorpay-integration-spec.md §2 for Razorpay plugin config.
 
 Configure plugins:
 - medusa-payment-razorpay (razorpay_key_id, razorpay_secret from env)
-- medusa-file-cloudinary (cloud_name, api_key, api_secret from env)
+- medusa-file-cloudinary (cloud_name, api_key, api_secret, folder: "shree-furniture" from env)
 - @medusajs/medusa-plugin-resend (api_key, from from env)
-- @medusajs/medusa-plugin-algolia (applicationId, adminApiKey, settings from env)
+- @medusajs/medusa-plugin-algolia (applicationId, adminApiKey from env)
 
 Configure modules:
 - database: DATABASE_URL env var
@@ -254,18 +269,17 @@ Update STATUS.md when done.
 ```
 @backend-specialist Create backend/src/seed.ts to seed MedusaJS with initial data.
 Seed in this order:
-1. India region: currency INR, countries: ["in"]
-2. Tax rates: 12% on furniture collections (living-room, bedroom, dining)
-          18% on storage/shelving collection
-3. Collections: living-room, bedroom, dining, office (with handle + title)
-4. Shipping options:
+1. India region: currency INR, countries: ["in"], tax_rate: 18, payment_providers: ["razorpay"]
+   Ref: NewDocs/17-india-specific-guide.md §5 for exact region seed config.
+2. Collections: living-room, bedroom, dining, office (with handle + title)
+3. Shipping options:
    - "Free Shipping" — ₹0 — requires order >= ₹500000 (₹5,000 in paise)
    - "Standard Shipping" — ₹49900 (₹499 in paise) — always available
-5. 3 sample products per collection with:
+4. 3 sample products per collection with:
    - 2 variants each (colour options)
    - Prices in paise (e.g., ₹49,999 = 4999900)
-   - Cloudinary placeholder thumbnail URL
-   - room_type metadata field
+   - Cloudinary placeholder thumbnail URL using folder structure from NewDocs/18-cloudinary-guide.md §2
+   - room_type, material, colour, style metadata fields (required for Algolia faceting)
 
 All prices as integers (paise). Ref: NewDocs/05-database-schema.md for field names.
 Update STATUS.md when done.
@@ -296,43 +310,82 @@ Update STATUS.md when done.
 #### Configure Algolia Index
 ```
 @backend-specialist Set up the Algolia search index for products.
-Index name: "products" (from ALGOLIA_INDEX_NAME env var)
+Ref: NewDocs/15-algolia-schema.md for the complete index specification.
 
-Configure these settings via Algolia dashboard or init script:
-Searchable attributes (in priority order):
-  1. title
-  2. description
-  3. collection.title
-  4. tags (unordered)
+Index name: shree_furniture_products (from ALGOLIA_INDEX_NAME env var)
+Staging: shree_furniture_products_staging | Dev: shree_furniture_products_dev
 
-Facets (for filtering):
-  - collection.handle
-  - room_type
-  - status
+Create backend/src/scripts/algolia-init.ts to configure index settings via setSettings():
 
-Ranking: by Most Popular (use a numeric custom ranking field)
+Searchable attributes (in this exact priority order):
+  1. product_title
+  2. tags
+  3. collection_title
+  4. variant_title
+  5. product_description
+  6. sku
 
-Create backend/src/scripts/algolia-init.ts to configure index settings programmatically.
+Attributes for faceting:
+  - filterOnly(product_id)          ← required for distinct deduplication
+  - searchable(collection_title)
+  - searchable(room_type)
+  - searchable(material)
+  - searchable(colour)
+  - searchable(style)
+  - filterOnly(in_stock)
+  - filterOnly(assembly_required)
+
+Numeric attributes for filtering: price_inr, price_amount, inventory_quantity
+
+Custom ranking: desc(in_stock), desc(updated_at)
+
+Distinct deduplication (one result per product, best variant surfaces):
+  distinct: true
+  attributeForDistinct: "product_id"
+
+Typo tolerance: minWordSizefor1Typo: 4, minWordSizefor2Typos: 8
+hitsPerPage: 12
+
+Create 3 virtual replicas for sorting:
+  shree_furniture_products_price_asc   — ranking: asc(price_inr)
+  shree_furniture_products_price_desc  — ranking: desc(price_inr)
+  shree_furniture_products_newest      — ranking: desc(created_at)
+
 Run: npx ts-node src/scripts/algolia-init.ts
 
 Then manually sync existing products:
 npx medusa exec ./src/scripts/algolia-sync-all.ts
 
-Verify: search for "sofa" in Algolia dashboard returns results.
+Verify: search for "sofa" in Algolia dashboard returns results with correct facets.
 Update STATUS.md when done.
 ```
 
 #### Configure Cloudinary
 ```
 @devops-engineer Document the Cloudinary setup required for this project.
+Ref: NewDocs/18-cloudinary-guide.md for the complete specification.
+
 Create infrastructure/CLOUDINARY-SETUP.md covering:
-- Upload preset name: "shree_furniture_products"
+
+Folder structure (must follow exactly):
+  shree-furniture/products/{product_handle}/primary.webp
+  shree-furniture/products/{product_handle}/gallery-01.webp … gallery-05.webp
+  shree-furniture/variants/{variant_sku}/swatch.webp
+  shree-furniture/collections/{collection_handle}/cover.webp
+  shree-furniture/brand/ (logo-dark.png, logo-light.png, og-image.jpg)
+
+Upload preset name: "shree_furniture_products"
   - Mode: UNSIGNED (required for Medusa Admin uploads)
-  - Auto-format: f_auto (WebP/AVIF auto-conversion)
-  - Auto-quality: q_auto
-  - Folder: shree-furniture/products
-- Responsive breakpoints: 400w, 800w, 1200w, 1600w
-- Transformation: c_fill, g_auto (smart cropping)
+  - use_filename: true, unique_filename: false, overwrite: true
+  - Auto-format: f_auto, auto-quality: q_auto
+  - Folder: shree-furniture
+
+The 7 transformation presets to document (see NewDocs/18-cloudinary-guide.md §4):
+  thumbnail, pdp_primary, pdp_zoom, pdp_thumb_strip, collection_cover, blur_placeholder, og_image
+
+Next.js custom loader:
+  - Create apps/storefront/lib/cloudinary/loader.ts (uses Cloudinary transforms, not Next.js optimizer)
+  - Ref: NewDocs/18-cloudinary-guide.md §5 for exact loader implementation
 
 Verify: Upload a test image via Medusa Admin → confirm WebP is served from Cloudinary CDN.
 Update STATUS.md when done.
@@ -344,7 +397,7 @@ Update STATUS.md when done.
 Create infrastructure/RESEND-SETUP.md covering:
 - Add domain: shree-furniture.in to Resend
 - Configure DNS: add DKIM TXT records and SPF record to Cloudflare
-- Sender address: orders@shree-furniture.in
+- Sender address: orders@shree-furniture.in (FROM_ADDRESS env var)
 - Verify: send a test email to confirm delivery
 
 After setup, run a backend smoke test:
@@ -430,34 +483,68 @@ Update STATUS.md when done.
 #### Build Algolia Client
 ```
 @frontend-specialist Create apps/storefront/lib/algolia/client.ts.
-Set up Algolia InstantSearch client:
+Ref: NewDocs/15-algolia-schema.md §7 for storefront client setup.
+
+Set up Algolia InstantSearch client using liteClient from algoliasearch/lite:
 - App ID: NEXT_PUBLIC_ALGOLIA_APP_ID
 - Search-only API key: NEXT_PUBLIC_ALGOLIA_SEARCH_KEY (read-only — safe for browser)
-- Index name: NEXT_PUBLIC_ALGOLIA_INDEX_NAME (default: "products")
+- Index name: NEXT_PUBLIC_ALGOLIA_INDEX_NAME (default: shree_furniture_products)
 
-Export: algoliasearch client instance + index name constant.
-This client is used by SearchOverlay and SearchResults components.
+Export: algoliasearch liteClient instance + index name constant + replica name constants.
+This client is used by SearchOverlay and SearchResults components via InstantSearchNext.
+Update STATUS.md when done.
+```
+
+#### Build Cloudinary Helpers
+```
+@frontend-specialist Create the Cloudinary utility functions.
+Ref: NewDocs/18-cloudinary-guide.md §4 and §5 for exact implementation.
+
+1. apps/storefront/lib/cloudinary/presets.ts
+   - PRESET_PARAMS object with all 7 transformation strings:
+     thumbnail, pdp_primary, pdp_zoom, pdp_thumb_strip, collection_cover, blur_placeholder, og_image
+   - cloudinaryUrl(urlOrPublicId: string, preset: keyof typeof PRESET_PARAMS): string
+     → accepts either a full Cloudinary URL or a public_id
+     → injects transformation params after "/upload/" in the URL
+   - getBlurPlaceholder(urlOrPublicId: string): Promise<string>
+     → fetches blur_placeholder preset URL
+     → converts response to base64 data URI
+     → used server-side for next/image blurDataURL prop
+
+2. apps/storefront/lib/cloudinary/loader.ts
+   - Next.js custom image loader function
+   - Uses Cloudinary transformations instead of Next.js built-in optimizer
+   - Register in next.config.ts
+
 Update STATUS.md when done.
 ```
 
 #### Build Price and Date Utilities
 ```
 @frontend-specialist Create the utility functions.
+Ref: NewDocs/17-india-specific-guide.md §6 for Indian number formatting and GST rules.
 
 1. apps/storefront/lib/utils/price.ts:
-   - formatPrice(paise: number): string → 4999900 → "₹49,999"
+   - formatPrice(paise: number): string
+     → uses Intl.NumberFormat("en-IN") for Indian numbering (₹1,00,000 not ₹100,000)
+     → 4999900 → "₹49,999" | 10000000 → "₹1,00,000"
+     → NEVER use "en-US" locale for Indian prices
+   - paiseToRupees(paise: number): number → for calculations only, never display raw
    - getDiscountPercent(original: number, sale: number): number
-   - calculateGST(priceInclGST: number, rate: number): { gstAmount: number, baseAmount: number }
+   - calculateIncludedGST(totalPaise: number, rate: number): { gstAmount: number, baseAmount: number }
+     → formula: totalPaise × (rate / (100 + rate))
    - formatShipping(paise: number): string → 0 → "Free", 49900 → "₹499"
-   
+
 2. apps/storefront/lib/utils/date.ts:
-   - formatDate(isoString: string): string → "15 Jan 2026"
+   - formatOrderDate(isoString: string): string → "15 Jan 2026" (en-IN locale, not "Jan 15")
+   - formatOrderTime(isoString: string): string → "02:30 PM IST" (Asia/Kolkata timezone)
    - getDeliveryEstimate(businessDays: number): string → "22–25 Jan 2026" (skips weekends)
    - isWeekend(date: Date): boolean
 
 3. apps/storefront/lib/utils/validators.ts:
-   - isPinCode(pin: string): boolean → 6 digits
-   - isIndianPhone(phone: string): boolean → 10 digits, starts with 6-9
+   - isPinCode(pin: string): boolean → 6 digits, first digit 1–8, regex: /^[1-8][0-9]{5}$/
+   - isIndianPhone(phone: string): boolean → 10 digits, first digit 6–9, regex: /^[6-9]\d{9}$/
+   - normalizePhone(input: string): string → strips +91 prefix if pasted, returns 10 digits
    - isServiceablePinCode(pin: string): Promise<boolean> → stub returning true for MVP
 
 All monetary inputs/outputs in paise (integers).
@@ -484,8 +571,7 @@ Ref: NewDocs/08-cart-pricing-engine-spec.md for cart state rules.
      → save _snapshot before mutating (for rollback)
    - removeItemOptimistic(lineItemId: string): void
    - updateQuantityOptimistic(lineItemId: string, quantity: number): void
-   - rollbackOptimisticAdd(variantId: string): void
-     → restore _snapshot if API call failed
+   - rollbackOptimisticAdd(variantId: string): void → restore _snapshot if API call failed
    - setCart(cart: Cart): void — sync full cart from server response
    - clearCart(): void — on logout or cart completion
 
@@ -561,14 +647,15 @@ Update STATUS.md when done.
 #### Build Header
 ```
 @frontend-specialist Build apps/storefront/components/layout/Header.tsx.
-Ref: NewDocs/03-information-architecture.md section 3.1 for exact navigation structure.
+Ref: NewDocs/design-reference.md §3 for exact header layout, heights, and behaviour.
+Ref: NewDocs/03-information-architecture.md section 3.1 for navigation structure.
 Ref: NewDocs/01-product-requirements.md section 4.1.
 
 Desktop layout (left → right):
   [Logo → /]   [Living Room] [Bedroom] [Dining] [Office]   [🔍] [♡] [👤] [🛒 (n)]
 
 Mobile layout:
-  [Logo]   [🔍] [🛒 (n)] [☰]
+  [☰]   [Logo (centred)]   [🔍] [🛒 (n)]
 
 Navigation links: Living Room, Bedroom, Dining, Office → /collections/[slug]
 
@@ -585,8 +672,8 @@ Icons and behaviour:
     data-testid="cart-icon"
 - Hamburger (☰): calls openMobileMenu() from ui-store (mobile only, <md breakpoint)
 
-Sticky: header is sticky (position: sticky, top: 0) with subtle shadow on scroll
-Background: white (#FFFFFF) with bottom border (#E8E0D0)
+Sticky: position sticky, top 0, z-index 40, shadow appears on scroll
+Background: #FFFFFF with 1px solid #E8E0D0 bottom border
 Height: 64px desktop, 56px mobile
 
 Named export only.
@@ -596,8 +683,10 @@ Update STATUS.md when done.
 #### Build ProductCard Component
 ```
 @frontend-specialist Build apps/storefront/components/product/ProductCard.tsx.
-This component is used in: Homepage BestSellers, PLP grid, Wishlist page, Search results.
+Ref: NewDocs/design-reference.md §4 for card anatomy, states, and hover behaviour.
 Ref: NewDocs/01-product-requirements.md section 4.2.
+
+This component is used in: Homepage BestSellers, PLP grid, Wishlist page, Search results.
 
 Props interface:
   interface ProductCardProps {
@@ -607,17 +696,24 @@ Props interface:
   }
 
 Layout (mobile-first):
-- Thumbnail: next/image, width=400 height=400 (explicit — prevents CLS), object-cover
+- Thumbnail: next/image, aspect-ratio 1:1, object-cover, edge-to-edge (no padding)
+  Use cloudinaryUrl(thumbnail, "thumbnail") from lib/cloudinary/presets.ts
   Use priority prop for above-fold cards
-- Discount badge (top-left): if sale price < original — shows "−17%" in Brand Accent colour
-- "New" badge (top-right): if created within 30 days
-- Product name: Playfair Display, line-clamp-2
-- PriceDisplay component (sale price + struck-through original)
-- "Only [n] left" if inventory_quantity <= 3 and > 0
-- Wishlist toggle (♡ icon, top-right): calls addToWishlist/removeFromWishlist
+- Discount badge (top-right of image): if sale price < original — shows "−17%" in Brand Accent
+- Wishlist icon (top-left of image): 32×32px tap target, circular white pill bg
+  Hidden by default on desktop (opacity 0), visible on card hover (opacity 1, 150ms transition)
+  Always visible on mobile
+  Not-wishlisted: Heart outline | Wishlisted: Heart filled, #C0392B
   If guest: redirects to /account/login?redirect=[current path]
+- Collection tag: Inter 12px, text.muted (below image)
+- Product name: Inter Semibold 16px, line-clamp-2
+- PriceDisplay component (sale price + struck-through original)
+- "Only [n] left" if inventory_quantity <= 3 and > 0 (semantic.warning colour)
 - Entire card is a link to /products/[handle]
-- Hover: subtle lift (translateY(-2px)) + shadow transition
+- Hover: translateY(-4px) + shadow increase (200ms ease) — NO image zoom, NO image scale
+
+Card border: 1px solid #E8E0D0, border-radius 12px
+Text area padding: 12px all sides
 
 data-testid="product-card" on root element.
 Named export only. No default export.
@@ -627,12 +723,15 @@ Update STATUS.md when done.
 #### Build PriceDisplay Component
 ```
 @frontend-specialist Build apps/storefront/components/shared/PriceDisplay.tsx.
+Ref: NewDocs/17-india-specific-guide.md §6 for Indian price formatting rules.
+
 Props: { amount: number, originalAmount?: number, size?: 'sm' | 'md' | 'lg' }
-- Renders formatted INR price using formatPrice() from lib/utils/price.ts
+- Renders formatted INR price using formatPrice() from lib/utils/price.ts (en-IN locale)
+- NEVER divide paise by 100 inline — always use formatPrice()
 - If originalAmount provided and > amount: show strikethrough original + discount badge
 - Discount badge uses Brand Accent colour (#C8A96E)
 - Size variants affect font size only
-- Small GST note below price: "Incl. 12% GST"
+- Small GST note below price: "GST included"
 Named export. data-testid="price-display".
 Update STATUS.md when done.
 ```
@@ -643,7 +742,8 @@ Update STATUS.md when done.
 
 1. apps/storefront/components/shared/SkeletonCard.tsx
    - Animated skeleton matching ProductCard dimensions (thumbnail + 2 text lines)
-   - Uses Tailwind animate-pulse
+   - Shimmer animation: base #E8E0D0, highlight #F5F0E8, 1.5s infinite
+   - aria-busy="true" on container
    - Used in PLP loading.tsx
 
 2. apps/storefront/components/shared/ErrorBoundary.tsx
@@ -654,7 +754,7 @@ Update STATUS.md when done.
 3. apps/storefront/components/shared/EmptyState.tsx
    - Props: { title: string, description: string, ctaLabel?: string, ctaHref?: string }
    - Used for: empty cart, no search results, empty wishlist, empty orders
-   - Warm background, centered layout
+   - Background: brand.warm (#F5F0E8), centered layout
 
 All named exports.
 Update STATUS.md when done.
@@ -663,41 +763,60 @@ Update STATUS.md when done.
 #### Build Footer
 ```
 @frontend-specialist Build apps/storefront/components/layout/Footer.tsx.
-Ref: NewDocs/03-information-architecture.md section 3.3 for exact navigation structure.
-Sections:
-- Collections column: Living Room, Bedroom, Dining, Office (→ /collections/[slug])
-- Customer Service column: Track Your Order, Returns & Refunds, FAQs, Contact Us
-- Company column: About Us, Privacy Policy, Terms of Service
-- Payment icons strip: UPI, Visa, Mastercard, EMI (use SVG icons or image files from public/)
-- Copyright: "© 2026 Shree Furniture. All rights reserved."
-Mobile: stack columns vertically with accordion expand/collapse.
-Design: warm background (#F5F0E8), subtle top border (#E8E0D0).
+Ref: NewDocs/design-reference.md §15 for footer layout, colours, and column structure.
+Ref: NewDocs/03-information-architecture.md section 3.3 for navigation structure.
+
+4-column desktop layout, single-column accordion on mobile:
+- Column 1: Logo + tagline ("India's home for quality furniture.")
+- Column 2 (Shop): Living Room, Bedroom, Dining, Office, New Arrivals, Sale
+- Column 3 (Help): Track Your Order, Returns & Refunds, FAQs, Contact Us, Care Guide, Assembly
+- Column 4 (Contact): support email, Mon–Sat 10am–6pm IST, social icons
+
+Payment icons strip at bottom: UPI, Visa, Mastercard, EMI
+Copyright: "© 2026 Shree Furniture. All rights reserved."
+
+Design: background #1A1A1A, text #FFFFFF, link opacity 70% → 100% on hover
+Padding: 48px top, 32px bottom, 48px horizontal desktop / 24px mobile
+Top border: 1px solid rgba(255,255,255,0.1)
+
 Update STATUS.md when done.
 ```
 
 #### Build MobileMenu
 ```
 @frontend-specialist Build apps/storefront/components/layout/MobileMenu.tsx.
+Ref: NewDocs/design-reference.md §3.2 for exact mobile menu layout and content.
+Ref: NewDocs/03-information-architecture.md section 3.2.
+
 Triggered by hamburger icon in Header on mobile (<md breakpoint).
-Full-screen overlay with slide-in animation.
-Content (ref NewDocs/03-information-architecture.md section 3.2):
-- Primary links: Living Room, Bedroom, Dining, Office
+Slides in from LEFT, full viewport height, 250ms ease-out.
+Backdrop: rgba(0,0,0,0.3), clicking backdrop closes menu.
+
+Content:
+- Close button (X) top right, 44×44px tap target
+- Primary links: Living Room, Bedroom, Dining, Office (→ /collections/[slug])
 - Divider
-- Secondary links: My Account, My Wishlist, My Orders
-- Close button (X) top right
+- Secondary links: My Account, My Wishlist, My Orders, Track Order
 - Outside click or escape key closes menu
-Uses ui-store: mobileMenuOpen, setMobileMenuOpen.
+
+Uses ui-store: mobileMenuOpen, closeMobileMenu.
 Update STATUS.md when done.
 ```
 
 #### Build Breadcrumb Component
 ```
 @frontend-specialist Build apps/storefront/components/layout/Breadcrumb.tsx.
+Ref: NewDocs/design-reference.md §8.2 for exact breadcrumb design spec.
+
 Props: { items: { label: string, href?: string }[] }
-- Renders breadcrumb trail: Home > Living Room > Oslo Sofa
-- Last item is not a link (current page)
+- Renders breadcrumb trail: Home › Living Room › Oslo Sofa
+- Separator: ChevronRight icon (Lucide, 14px, text.muted)
+- Last item is current page (text.primary, not a link)
+- All previous items are links (text.muted, hover: text.primary)
+- Font: Inter Regular 14px
 - Includes JSON-LD BreadcrumbList structured data as <script type="application/ld+json">
 - Accessible: nav aria-label="Breadcrumb" + ol list structure
+
 Used on PLP and PDP pages.
 Ref: NewDocs/03-information-architecture.md section 4 for URL structure.
 Update STATUS.md when done.
@@ -710,8 +829,9 @@ Update STATUS.md when done.
 #### Build the Homepage
 ```
 @frontend-specialist Build apps/storefront/app/(store)/page.tsx — the Homepage.
-ISR: export const revalidate = 60
+Ref: NewDocs/design-reference.md §2.4 for the zone-by-zone layout spec.
 Ref: NewDocs/01-product-requirements.md section 4.1 for all requirements.
+ISR: export const revalidate = 60
 
 Fetch in parallel (Promise.all):
 - getCollections() — for Featured Collections grid
@@ -720,25 +840,33 @@ Fetch in parallel (Promise.all):
 Sections to build (in order, top to bottom):
 
 1. HeroSection (create components/home/HeroSection.tsx):
-   - Full-width banner with background image (from Cloudinary)
-   - Headline: "Beautiful Furniture for Every Home"
-   - Subheadline: "Free delivery on orders above ₹5,000"
-   - Two CTAs: "Shop Now" (→ /collections/living-room) + "Explore Collections" (→ /collections)
-   - Mobile: stacked layout, image behind text
+   - Full-width banner, height 560px desktop / 400px mobile
+   - Background lifestyle image from Cloudinary (use cloudinaryUrl with og_image or custom preset)
+   - Headline: "Make it home." — Playfair Display Bold 48px desktop / 32px mobile
+   - Subheadline: "Quality furniture for every room. Free delivery on orders above ₹5,000."
+   - CTA: "Shop Collections" (→ /collections) — brand.primary button
+   - Mobile: stacked layout, image behind text with dark overlay
 
 2. FeaturedCollections (create components/home/FeaturedCollections.tsx):
    - 4-card grid: Living Room, Bedroom, Dining, Office
-   - Each card: full-bleed image, collection name, "Shop Now" link
+   - Each card: lifestyle image (aspect-ratio 4/3 desktop, 1/1 mobile), collection name, item count, "Explore →"
    - Grid: 2 cols mobile / 4 cols desktop
+   - Card hover: shadow increase, "Explore →" underlines
 
 3. BestSellers (create components/home/BestSellers.tsx):
-   - Horizontally scrollable product carousel on mobile (scroll-snap)
+   - Heading: "Best Sellers" (Playfair Display Semibold 30px) + "View All →" link
+   - Horizontally scrollable product carousel on mobile (scroll-snap, shows 1.5 cards)
    - 4-col grid on desktop
    - Uses ProductCard component
 
 4. TrustSignals (create components/home/TrustSignals.tsx):
-   - 4 icons + text: "Free Delivery above ₹5,000" | "Easy Returns" | "EMI Available" | "Genuine Warranty"
-   - Subtle background strip (#E8E0D0)
+   - Full-width band, background #FFFFFF, border top+bottom 1px solid #E8E0D0
+   - 4 signals: "Free Delivery on orders above ₹5,000" (Truck) | "7-Day Easy Returns" (RefreshCw)
+                "No-Cost EMI Available" (CreditCard) | "1-Year Genuine Warranty" (Shield)
+   - Exact copy from NewDocs/17-india-specific-guide.md §9
+
+5. NewArrivals (create components/home/NewArrivals.tsx):
+   - Same layout as BestSellers, heading "New Arrivals"
 
 generateMetadata(): title "Shree Furniture — Beautiful Furniture for Every Home", OG image.
 Update STATUS.md when done.
@@ -751,17 +879,22 @@ Update STATUS.md when done.
 #### Build PLP (Product Listing Page)
 ```
 @frontend-specialist Build apps/storefront/app/(store)/collections/[handle]/page.tsx.
-ISR: export const revalidate = 60
+Ref: NewDocs/design-reference.md §2.2 for PLP layout spec (filter sidebar + grid split).
 Ref: NewDocs/01-product-requirements.md section 4.2.
+ISR: export const revalidate = 60
 
 - Fetch collection + products via getProducts({ collection_handle: handle })
-- Product grid: 2 cols mobile / 3 tablet / 4 desktop using ProductCard
-- Filter panel: sidebar on desktop, bottom sheet on mobile
-  Filters: material, colour, price range (₹0–₹10k, ₹10k–₹30k, ₹30k–₹60k, ₹60k+)
-- Sort: Price Low→High, High→Low, Newest, Most Popular
+- Page title: Playfair Display Semibold 36px desktop / 24px mobile
+- Result count: Inter Regular 14px, text.muted ("48 results")
+- Product grid: 2 cols mobile (12px gap) / 3 tablet (16px gap) / 4 desktop (24px gap) using ProductCard
+- Filter panel: sticky sidebar 260px on desktop, full-screen bottom sheet on mobile
+  Filters: room_type, material, colour, style, price range (₹0–₹10k / ₹10k–₹30k / ₹30k–₹60k / ₹60k+)
+  Active filter count shown on mobile filter button: "Filter (3)"
+  Ref: NewDocs/15-algolia-schema.md §3 for exact facet attribute names
+- Sort: Price Low→High, High→Low, Newest — uses Algolia virtual replicas
   All filter + sort state in URL query params (?material=wood&sort=price_asc)
 - "Load More" pagination button (not infinite scroll — SEO)
-- Breadcrumb: Home > [Collection Name]
+- Breadcrumb: Home › [Collection Name]
 - Empty state with EmptyState component
 - loading.tsx: grid of 8 SkeletonCard components
 - not-found.tsx for invalid collection handles
@@ -773,34 +906,45 @@ Update STATUS.md when done.
 #### Build PDP (Product Detail Page)
 ```
 @frontend-specialist Build apps/storefront/app/(store)/products/[handle]/page.tsx.
-ISR: export const revalidate = 60
+Ref: NewDocs/design-reference.md §2.3 for PDP two-column layout and mobile sticky CTA.
 Ref: NewDocs/01-product-requirements.md section 4.3.
+ISR: export const revalidate = 60
 
 Fetch in parallel:
 - getProduct(handle)
 - getProducts({ collection_id, limit: 4 }) — for related products
 
+Pre-fetch blur placeholders server-side:
+  const blurDataURLs = await Promise.all(product.images.map(img => getBlurPlaceholder(img.url)))
+
 Build these sub-components (create in components/product/):
-- ProductGallery.tsx: primary image (priority) + thumbnail strip, pinch-zoom on mobile
+- ProductGallery.tsx:
+    Primary image (priority, pdp_primary preset, with blurDataURL) + thumbnail strip (pdp_thumb_strip)
+    Swipeable on mobile, pinch-zoom on mobile
+    Ref: NewDocs/18-cloudinary-guide.md §6 for gallery component pattern
 - ProductVariants.tsx: colour swatches + size buttons, disabled state for out-of-stock
 - ProductBadge.tsx: "New", "Sale", "Only 3 left" badges
 - ProductSpecsTable.tsx: L×W×H, weight, material, finish from metadata
-- DeliveryEstimate.tsx: PIN code input → show estimated delivery date
+- DeliveryEstimate.tsx: PIN code input → show "Delivery in 7–10 business days"
+  PIN validation: uses isPinCode() from lib/utils/validators.ts
 
-Page layout:
+Page layout (desktop — two column 50/50):
 - Left: ProductGallery (sticky on desktop)
-- Right: name, SKU, PriceDisplay (with original + discount%), GST note,
+- Right: collection tag, product name (Playfair Display Semibold 36px), SKU,
+         PriceDisplay (with original + discount%), GST included note,
          ProductVariants, quantity selector (capped to inventory_quantity),
-         "Add to Cart" button (sticky on mobile, data-testid="add-to-cart"),
+         "Add to Cart" button (sticky bottom bar on mobile, data-testid="add-to-cart"),
          "Add to Wishlist" button,
          DeliveryEstimate,
          ProductSpecsTable, rich text description
 - Below fold: Related Products carousel
 
+Mobile: single column, gallery full-width, sticky bottom bar with price + "Add to Cart"
+
 SEO:
-- generateMetadata(): unique title, description, OG image from thumbnail
+- generateMetadata(): unique title, description, OG image using cloudinaryUrl(thumbnail, "og_image")
 - JSON-LD Product schema (name, image, price, availability, brand)
-- Breadcrumb: Home > [Collection] > [Product Name]
+- Breadcrumb: Home › [Collection] › [Product Name]
 - Out-of-stock variants: visually disabled (opacity-50, cursor-not-allowed) — NOT hidden
 
 not-found.tsx for invalid product handles.
@@ -814,30 +958,37 @@ Update STATUS.md when done.
 #### Build Search Feature
 ```
 @frontend-specialist Build the complete search feature.
+Ref: NewDocs/design-reference.md §8.3 for SearchOverlay layout and behaviour.
+Ref: NewDocs/15-algolia-schema.md §7 for InstantSearchNext setup.
 Ref: NewDocs/01-product-requirements.md section 4.7.
 
 Files to create:
 1. components/search/SearchBar.tsx
-   - Input in Header, opens SearchOverlay on focus
+   - Input in Header, opens SearchOverlay on focus/click
    - Uses ui-store: searchOverlayOpen, setSearchOverlayOpen
    - data-testid="search-bar"
 
 2. components/search/SearchOverlay.tsx
-   - Full-screen overlay on mobile, floating panel on desktop
+   - Full-screen overlay, fades in 150ms
    - Contains SearchBar + live SearchResults
+   - Popular searches shown when input is empty
    - Escape key or outside click closes
-   - Uses Algolia InstantSearch from lib/algolia/client.ts
+   - Uses Algolia InstantSearchNext from lib/algolia/client.ts
+   - SearchBox debounce: 300ms
 
 3. components/search/SearchResults.tsx
-   - Algolia Hit component: product thumbnail, name, price, collection badge
-   - Typo-tolerance is configured in Algolia (no code needed)
-   - "No results" state with EmptyState component + 4 collection suggestion links
+   - Algolia Hit component: product thumbnail, name, collection tag, price
+   - Deduplication via distinct:true is configured in Algolia — no code needed
+   - "No results for 'xyz'" state with suggested category links
    - Track query to PostHog: analytics.searchQuery(query)
 
 4. apps/storefront/app/(store)/search/page.tsx (CSR — no revalidate)
-   - Full search results page with Algolia InstantSearch
+   - Full search results page with Algolia InstantSearchNext
    - URL: /search?q=[query]
-   - Faceted filters in sidebar
+   - Faceted filters sidebar (same pattern as PLP filter panel)
+   - RefinementList for material, colour, style, room_type
+   - RangeInput for price_inr
+   - SortBy with replicas: newest, price_asc, price_desc
 
 Update STATUS.md when done.
 ```
@@ -849,11 +1000,11 @@ This is the full /cart page — separate from the CartDrawer slide-in.
 Rendering: CSR ('use client' or no revalidate)
 Content:
 - Full cart item list (same CartItem component as CartDrawer)
-- CartSummary with subtotal, shipping, GST, total
+- CartSummary with subtotal, shipping, GST note, total
 - "Proceed to Checkout" CTA → /checkout
 - Empty cart state: EmptyState component + "Continue Shopping" → /
 - Page title: "Your Cart" + item count
-- Breadcrumb: Home > Cart
+- Breadcrumb: Home › Cart
 This page is the fallback for users who navigate directly to /cart.
 Update STATUS.md when done.
 ```
@@ -867,6 +1018,7 @@ Update STATUS.md when done.
 #### Build CartDrawer + CartItem + CartSummary
 ```
 @frontend-specialist Build the complete cart drawer UI.
+Ref: NewDocs/design-reference.md §9.1 for drawer layout, mobile bottom sheet spec, and free shipping indicator.
 Ref: NewDocs/01-product-requirements.md section 4.4.
 Ref: NewDocs/08-cart-pricing-engine-spec.md for pricing rules.
 
@@ -879,17 +1031,20 @@ Ref: NewDocs/08-cart-pricing-engine-spec.md for pricing rules.
    - Optimistic update: call useUpdateCartItem / useRemoveFromCart hooks
 
 2. components/cart/CartSummary.tsx
-   - Subtotal in paise via formatPrice()
+   - Subtotal in paise via formatPrice() (en-IN locale)
    - Shipping: "Free" if subtotal >= 500000 (₹5,000), else "₹499"
-   - Free shipping progress bar: "Add ₹X more for free shipping"
+   - Free shipping progress bar: "Add ₹X more for free delivery"
+     Brand accent (#C8A96E) fill, text from NewDocs/17-india-specific-guide.md §8
    - GST note: "Prices include applicable GST"
    - Total (subtotal + shipping)
    - "Proceed to Checkout" button, data-testid="proceed-to-checkout"
 
 3. components/cart/CartDrawer.tsx
    - Triggered by ui-store cartDrawerOpen
-   - Slide-in from right (desktop), bottom sheet (mobile) — shadcn/ui Sheet component
-   - Header: "Your Cart" + item count + close button
+   - Desktop: slides from RIGHT, width 420px, full viewport height
+   - Mobile: slides UP from bottom, 85vh max, border-radius 16px top corners, drag handle
+   - Backdrop: rgba(0,0,0,0.3), clicking backdrop closes
+   - Header: "Cart (3 items)" + close button (X), 44×44px tap target
    - Scrollable CartItem list
    - Sticky CartSummary at bottom
    - Empty state: EmptyState component + "Continue Shopping" closes drawer
@@ -906,24 +1061,24 @@ Update STATUS.md when done.
 #### Build CheckoutProgress Component
 ```
 @frontend-specialist Build apps/storefront/components/checkout/CheckoutProgress.tsx.
+Ref: NewDocs/design-reference.md §9.2 for exact step indicator design.
 Used in all 3 checkout steps to show where the user is in the flow.
-Ref: NewDocs/03-information-architecture.md section 7 (checkout state machine).
 
 Props:
   interface CheckoutProgressProps {
     currentStep: 'address' | 'shipping' | 'payment'
   }
 
-Steps to show: Address → Shipping → Payment
+Steps: Address → Shipping → Payment (equal thirds of container width)
+
 Visual states:
-  - Completed step (before current): checkmark icon + coloured line, clickable (navigate back)
-  - Current step: highlighted label + step number, not clickable
-  - Future step: greyed out, not clickable
+  - Completed: circle filled #1A1A1A, white checkmark icon, connecting line filled #1A1A1A, clickable (navigate back)
+  - Current: circle filled #1A1A1A, white number, no right connecting line filled
+  - Future: circle outline, muted grey number, dashed connecting line
 
-Mobile: compact horizontal strip with step numbers only (1 → 2 → 3)
-Desktop: full labels + connecting lines
+Desktop: full step labels + connecting lines
+Mobile: compact, 24px circles, step numbers only (1 → 2 → 3), 11px font
 
-Colours: completed = Brand Primary (#1A1A1A), current = Brand Accent (#C8A96E), future = muted grey
 Named export. data-testid="checkout-progress"
 Update STATUS.md when done.
 ```
@@ -931,22 +1086,32 @@ Update STATUS.md when done.
 #### Build Checkout Step 1 — Address
 ```
 @frontend-specialist Build apps/storefront/app/(checkout)/checkout/page.tsx and AddressForm.
+Ref: NewDocs/design-reference.md §9.3 for form field order and clarity rules.
+Ref: NewDocs/17-india-specific-guide.md §2 for phone schema, §3 for PIN schema, §4 for states list.
 Ref: NewDocs/01-product-requirements.md section 4.5 Step 1.
 Ref: NewDocs/06-api-contracts.md section 5 for customer address endpoint.
 
 Zod schema (export addressSchema for testing):
-- firstName, lastName: min 2 chars
+- fullName: min 2 chars (single field — not split first/last on mobile)
 - email: valid email format
-- phone: 10-digit Indian mobile (starts with 6-9)
-- address1: required
-- address2: optional
+- phone: 10 digits, first digit 6–9, regex: /^[6-9]\d{9}$/
+  Display with non-editable "+91" prefix in the input field
+  Store without +91 prefix (10 digits only)
+- address1: required (Flat/House No., Building, Street)
+- address2: optional (Area / Locality — label it as optional but encourage it)
 - city: required
-- state: required (dropdown — all Indian states)
-- postalCode: exactly 6 digits
+- state: required dropdown — use INDIAN_STATES array from NewDocs/17-india-specific-guide.md §4
+  Do NOT use a short list or abbreviations — use the full 36 states/UTs as specified
+- postalCode: exactly 6 digits, first digit 1–8, regex: /^[1-8][0-9]{5}$/, stored as string
 - countryCode: "in" (hidden field)
+
+Form field order (top to bottom): Full Name, Mobile Number (+91), Address Line 1,
+  Address Line 2 (optional), City, State (dropdown), PIN Code
 
 Behaviour:
 - React Hook Form with Zod resolver
+- Visible labels on all fields (no floating labels)
+- Inline error messages below each field (not toast)
 - Logged-in users: show saved addresses as selectable cards (pre-fill form)
 - On valid submit: call setAddress() + setEmail() in lib/medusa/cart.ts
 - On success: navigate to /checkout/shipping
@@ -965,10 +1130,11 @@ Ref: NewDocs/08-cart-pricing-engine-spec.md section 5 for shipping rules.
 
 Fetch available shipping options for the cart region.
 Display options:
-- "Standard Shipping" — ₹499 — "7–10 business days" (data-testid="shipping-option-standard")
-- "Free Shipping" — ₹0 — "7–10 business days" (only shown if cart total >= ₹5,000)
-If eligible for free shipping, show: "🎉 Your order qualifies for free shipping!"
-If not eligible: "Add ₹X more to get free shipping"
+- "Standard Shipping" — ₹499 — "Delivery in 7–10 business days" (data-testid="shipping-option-standard")
+- "Free Delivery" — ₹0 — "Delivery in 7–10 business days" (only shown if cart total >= ₹5,000)
+  Delivery copy must match NewDocs/17-india-specific-guide.md §8 exactly.
+If eligible for free shipping, show: "✓ Your order qualifies for free delivery!"
+If not eligible: "Add ₹X more to get free delivery"
 
 On selection: call setShippingMethod() in lib/medusa/cart.ts
 "Continue to Payment" → /checkout/payment (data-testid="continue-to-payment")
@@ -981,30 +1147,52 @@ Update STATUS.md when done.
 #### Build Checkout Step 3 — Payment
 ```
 @frontend-specialist Build apps/storefront/app/(checkout)/checkout/payment/page.tsx.
+Ref: NewDocs/14-razorpay-integration-spec.md §3 for the complete Razorpay modal config.
 Ref: NewDocs/01-product-requirements.md section 4.5 Step 3.
 
 1. On page load: call initPaymentSession() → gets razorpay_order_id from Medusa
-2. Load Razorpay JS SDK dynamically (do NOT bundle — load from https://checkout.razorpay.com/v1/checkout.js)
+2. Load Razorpay JS SDK dynamically (do NOT bundle):
+   <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
+
 3. Order summary:
    - Desktop: sticky sidebar
    - Mobile: collapsed accordion showing total
+
 4. "Place Order" button (data-testid="place-order"):
-   - Opens Razorpay modal:
-     key: NEXT_PUBLIC_RAZORPAY_KEY_ID
-     order_id: razorpay_order_id from payment session
-     amount: cart.total (in paise)
-     currency: "INR"
-     name: "Shree Furniture"
-     prefill: { email, contact: phone } from cart
-     theme: { color: "#C8A96E" } (brand accent)
-5. On Razorpay success:
+   Opens Razorpay modal with these exact options:
+     key:        NEXT_PUBLIC_RAZORPAY_KEY_ID
+     order_id:   razorpay_order_id from payment session
+     amount:     cart.total (in paise — integer)
+     currency:   "INR"
+     name:       "Shree Furniture"
+     description: "Order #" + cart.id
+     prefill: {
+       name:    customer full name from cart
+       email:   customer email from cart
+       contact: phone number — 10 digits, NO +91 prefix (Razorpay adds country code)
+     }
+     notes: {
+       medusa_cart_id: cart.id   ← CRITICAL: webhook uses this for idempotency
+     }
+     theme: { color: "#1A1A1A" }   ← brand.primary, NOT accent gold
+     modal: {
+       ondismiss: () => { /* re-enable Place Order button */ }
+       escape: true
+     }
+   Payment methods enabled: upi, card, netbanking, emi, cardless_emi, wallet
+   Do NOT enable international cards in Phase 1.
+
+5. On Razorpay success handler:
    - Call completeCart() in lib/medusa/cart.ts
    - If response.type === "order": navigate to /order/confirm/[id]
-   - Clear cart_id cookie
-6. On Razorpay failure:
-   - Show inline error message (do NOT redirect)
-   - "Try Again" button re-opens Razorpay modal
-   - Do NOT expose Razorpay error codes to user
+   - Clear cart_id cookie via clearCartId()
+   - Track: analytics.orderComplete({ orderId: display_id, total })
+
+6. On Razorpay failure / modal dismiss:
+   - Show inline error message (do NOT redirect, do NOT call completeCart())
+   - "Try Again" button re-opens Razorpay modal with the same razorpay_order_id
+   - Log failure to PostHog: posthog.capture('payment_failed', { error_code })
+   - Do NOT expose Razorpay internal error codes to the user
 
 CheckoutProgress: Address (complete) → Shipping (complete) → Payment (active)
 Update STATUS.md when done.
@@ -1013,24 +1201,67 @@ Update STATUS.md when done.
 #### Build Razorpay Webhook Handler
 ```
 @backend-specialist @security-auditor Build apps/storefront/app/api/webhooks/razorpay/route.ts.
-Ref: NewDocs/06-api-contracts.md section 7 for exact payload structure.
+Ref: NewDocs/14-razorpay-integration-spec.md §4 for complete HMAC pattern, idempotency schema, and event handlers.
+Ref: NewDocs/06-api-contracts.md section 7 for payload structure.
 Ref: NewDocs/KNOWN-ISSUES.md "Duplicate Order Creation" — read this first.
 
 Logic (in this exact order):
-1. Read raw body as text (do NOT parse JSON before verification)
+1. Read raw body as TEXT using request.text() — do NOT call request.json() before verification
+   (JSON parsing destroys the raw body and will break HMAC verification)
 2. Extract X-Razorpay-Signature header
 3. Compute HMAC-SHA256(RAZORPAY_WEBHOOK_SECRET, rawBody) using crypto.createHmac
 4. Use timingSafeEqual for comparison (prevents timing attacks)
 5. If mismatch → return 400 immediately, log warning
-6. Return 200 OK NOW (before any async processing — prevents Razorpay retry loop)
-7. Parse body as JSON
-8. Check idempotency: has payment ID already been processed? If yes → return silently
-9. Store payment ID as "processing" in Redis (TTL 10 minutes)
-10. On payment.captured: call Medusa to capture payment for the order
-11. On payment.failed: log for admin visibility
-12. Mark payment ID as "processed" in Redis
+6. Return 200 OK immediately (before any async processing — prevents Razorpay retry loop)
+7. Parse rawBody as JSON
+8. Idempotency check via PostgreSQL table processed_webhook_events:
+   Schema: { id, payment_id (unique), status, created_at }
+   If payment_id already exists with status "processed" → return silently (do not re-process)
+   Do NOT use Redis for idempotency — use the PostgreSQL table as specified
+9. Insert payment_id with status "processing" into processed_webhook_events
+10. Handle events:
+    - payment.captured: extract medusa_cart_id from event.payload.payment.entity.notes
+      → call cart.complete(medusa_cart_id) — this is idempotent
+      → order.placed subscriber fires automatically
+    - payment.failed: log for admin visibility, do NOT call cart.complete()
+    - refund.created: send refund confirmation email (see "Build Refund Email" prompt)
+    - refund.failed: log for admin visibility
+    - Unknown events: return 200 (do NOT return 4xx — Razorpay will retry)
+11. Update processed_webhook_events status to "processed"
 
-Ref: NewDocs/08-cart-pricing-engine-spec.md section 2 for cart lifecycle.
+Update STATUS.md when done.
+```
+
+#### Build Refund Confirmation Email
+```
+@backend-specialist Build the refund confirmation email triggered by the Razorpay webhook.
+Ref: NewDocs/16-email-templates-spec.md §8 for variables, subject line, and layout.
+
+Create backend/src/emails/RefundConfirmationEmail.tsx using React Email.
+Use the shared EmailLayout component (background #F5F0E8, white container, Playfair/Inter fonts).
+
+Props (RefundConfirmationProps):
+  customer_name: string
+  display_id: string
+  refund_amount: number        ← in paise, format with formatPrice() at render
+  payment_method: string       ← "UPI" | "Credit/Debit Card" | "Net Banking" | etc.
+  estimated_credit_days: string ← "2–3 business days" for UPI, "5–7 business days" for cards
+  razorpay_refund_id: string
+  order_url: string
+
+Subject: "Your refund of ₹[amount] has been initiated — Order #[display_id]"
+  Build subject dynamically: `Your refund of ${formatPrice(refund_amount)} has been initiated — Order #${display_id}`
+
+Content layout:
+  - Headline: "Your refund has been initiated"
+  - Refund summary block: amount, payment method, estimated credit timeline
+  - Bank timeline note with Razorpay refund ID for customer reference
+  - "View Order" CTA button → order_url
+  - Support line: contact support@shree-furniture.in for queries
+
+Wire up in the webhook handler: call sendEmail() from lib/email.ts inside the refund.created branch.
+Fetch customer email from the order using the medusa_cart_id from webhook notes.
+
 Update STATUS.md when done.
 ```
 
@@ -1046,11 +1277,11 @@ If order not found → redirect to /
 Display (data-testid="order-confirmation"):
 - ✅ "Order Confirmed!" hero message
 - Order ID: #[display_id] (data-testid="order-confirmation-id")
-- Items list: thumbnail, name, variant, quantity, price
+- Items list: thumbnail (cloudinaryUrl with thumbnail preset), name, variant, quantity, price
 - Shipping address
 - Payment method: "Paid via Razorpay"
-- Order total (breakdown: subtotal, shipping, GST)
-- Estimated delivery: getDeliveryEstimate(10) from lib/utils/date.ts
+- Order total (breakdown: subtotal, shipping, GST note)
+- Estimated delivery: "Delivery in 7–10 business days" (formatOrderDate for the date range)
 - Email note: "A confirmation email has been sent to [email]"
 - "Continue Shopping" CTA → /
 
@@ -1102,15 +1333,14 @@ Auth guard:
 - If not authenticated → redirect to /account/login?redirect=[current path]
 - If authenticated → render layout with customer data
 
-Sidebar navigation (desktop only — mobile uses bottom nav or dropdown):
+Sidebar navigation (desktop only — mobile uses horizontal tab strip at top):
 - My Orders → /account/orders
 - Wishlist → /account/wishlist
 - Addresses → /account/addresses
 - Account Settings → /account/settings
 - Logout button (calls logout() then redirects to /)
 
-Active state: highlight current page link.
-Mobile: sidebar collapses to a horizontal tab strip at top.
+Active state: highlight current page link with brand.accent underline.
 Update STATUS.md when done.
 ```
 
@@ -1123,7 +1353,7 @@ Ref: NewDocs/06-api-contracts.md section 4 for orders endpoint.
 1. apps/storefront/app/(account)/account/orders/page.tsx
    Rendering: SSR (dynamic) — always fresh
    - Fetch getOrders() for authenticated customer
-   - Order list: each row shows order ID (#display_id), date (formatDate), total (formatPrice),
+   - Order list: each row shows order ID (#display_id), date (formatOrderDate), total (formatPrice),
      payment status badge, fulfillment status badge
    - Clickable rows → /account/orders/[id]
    - Empty state: EmptyState component with "Start Shopping" CTA
@@ -1133,7 +1363,8 @@ Ref: NewDocs/06-api-contracts.md section 4 for orders endpoint.
    Rendering: SSR (dynamic)
    - Fetch getOrder(id) for the authenticated customer
    - Verify order belongs to current customer (redirect if not)
-   - Show: order ID, date, status, items list (thumbnail, name, variant, qty, price),
+   - Show: order ID, date (formatOrderDate), time (formatOrderTime in IST), status,
+     items list (thumbnail, name, variant, qty, price via formatPrice),
      shipping address, payment method, total breakdown
    - If fulfillment_status === "shipped": show tracking link (if tracking_number exists)
    - "Need Help?" link → mailto:support@shree-furniture.in
@@ -1168,8 +1399,9 @@ Update STATUS.md when done.
 1. apps/storefront/app/(account)/account/addresses/page.tsx
    Rendering: SSR (dynamic)
    - Fetch customer addresses from getMe()
-   - Show address cards: name, address, city, PIN, phone
+   - Show address cards: name, address, area/locality, city, PIN, phone (formatted "XXXXX XXXXX")
    - "Add New Address" → opens AddressForm in a Sheet/modal (reuse from checkout)
+     AddressForm reuse: same Zod schema, same INDIAN_STATES dropdown, same field order
    - Edit and Delete actions on each card
    - On add/edit/delete: call appropriate Medusa customer address endpoints
    Ref: NewDocs/06-api-contracts.md section 5 for address endpoints.
@@ -1192,54 +1424,82 @@ Update STATUS.md when done.
 #### Build Order Confirmation Email Subscriber
 ```
 @backend-specialist Build backend/src/subscribers/order-placed.ts.
-MedusaJS v2 subscriber pattern (Ref: NewDocs/MEDUSA-V2-PATTERNS.md).
+Ref: NewDocs/MEDUSA-V2-PATTERNS.md for correct v2 subscriber pattern.
+Ref: NewDocs/16-email-templates-spec.md §4 for template spec, subject line, and variable shapes.
 Event: "order.placed"
 
 Steps:
 1. Retrieve order with relations: items, shipping_address, customer
-2. Format item prices using formatPrice from packages/types (import the shared util)
-3. Send via Resend to customer email
-4. Create React Email template: backend/src/emails/OrderConfirmation.tsx
-   - Shree Furniture header with logo
-   - "Your order is confirmed! 🎉"
-   - Order #[display_id] box
-   - Items table: thumbnail, name, variant, qty, price
-   - Shipping address block
-   - Order total (subtotal, shipping, GST, total)
-   - Estimated delivery: 7-10 business days
-   - "View Order" button → [STOREFRONT_URL]/account/orders/[id]
+2. Build OrderConfirmationProps — all prices via formatPrice() from packages/types
+   Never divide paise by 100 inline
+3. Send via Resend using sendEmail() from backend/src/lib/email.ts
 
-Subject: "Order Confirmed — #[display_id] | Shree Furniture"
+Create React Email template: backend/src/emails/OrderConfirmationEmail.tsx
+Use shared EmailLayout component (Ref: NewDocs/16-email-templates-spec.md §3).
+Content:
+  - Greeting + "Your order is confirmed" heading
+  - Order #[display_id] box
+  - Items table: thumbnail, name, variant_title, quantity, unit_price
+  - Totals block: subtotal, shipping, "(GST @ 18% included: ₹X,XXX)", total
+  - Shipping address block
+  - Estimated delivery: "7–10 business days after dispatch"
+  - "View Your Order" CTA button → [STOREFRONT_URL]/account/orders/[id]
+  - Trust note with support email
+
+Subject: "Your Shree Furniture order #[display_id] is confirmed ✓"
+
 Update STATUS.md when done.
 ```
 
 #### Build Order Shipped Email Subscriber
 ```
 @backend-specialist Build backend/src/subscribers/order-shipped.ts.
+Ref: NewDocs/MEDUSA-V2-PATTERNS.md for correct v2 subscriber pattern.
+Ref: NewDocs/16-email-templates-spec.md §5 for template spec and variable shapes.
 Event: "order.shipment_created"
-Create React Email template: backend/src/emails/OrderShipped.tsx
-Content: "Your order is on its way 🚚", order ID, items, tracking link (if available), estimated delivery.
-Subject: "Your Order Has Shipped — #[display_id] | Shree Furniture"
+
+Create React Email template: backend/src/emails/OrderShippedEmail.tsx
+Use shared EmailLayout component.
+Content:
+  - "Your order is on its way 🚚" headline
+  - Tracking block: courier_name, tracking_number, "Track Your Shipment" CTA → tracking_url
+  - Items shipped list (name + variant_title + quantity — no prices)
+  - Delivery note: "Signature may be required on delivery"
+  - Assembly note: "Assembly guide included in package"
+  - "View Order Details" CTA → order_url
+
+Subject: "Your Shree Furniture order #[display_id] has shipped 🚚"
+
 Update STATUS.md when done.
 ```
 
 #### Build Algolia Sync Subscriber
 ```
 @backend-specialist Build backend/src/subscribers/algolia-sync.ts.
-Events: "product.created", "product.updated", "product.status_changed"
+Ref: NewDocs/MEDUSA-V2-PATTERNS.md for correct v2 subscriber pattern.
+Ref: NewDocs/15-algolia-schema.md §4 for sync events and the AlgoliaProductRecord shape.
+
+Events to subscribe to:
+  "product.created", "product.updated", "product.deleted",
+  "product-variant.created", "product-variant.updated", "product-variant.deleted"
 
 On created/updated (status=published, deleted_at=null):
-- Upsert to Algolia index with objectID = product.id
-- Index these fields: id, title, handle, thumbnail, variants[0].prices[0].amount,
-  collection.handle, collection.title, room_type, status, tags
+  Build one AlgoliaProductRecord PER VARIANT (objectID = variant.id, NOT product.id)
+  Each record must include ALL fields from AlgoliaProductRecord in NewDocs/15-algolia-schema.md §2:
+    objectID, product_id, product_title, product_handle, product_description,
+    collection_id, collection_title, collection_handle, thumbnail, tags,
+    variant_id, variant_title, sku, inventory_quantity, in_stock (boolean),
+    price_amount (paise integer), price_inr (rupees float for range filters),
+    room_type, material, colour, style, assembly_required,
+    created_at (Unix seconds), updated_at (Unix seconds)
+  Call index.saveObjects(records) for upsert
 
-On status_changed to 'draft' or if deleted_at set:
-- Remove from Algolia index: index.deleteObject(product.id)
+On product.deleted or status changed to draft:
+  Remove all variant records: fetch all variant IDs for the product, call index.deleteObjects([...variantIds])
 
 After every sync:
-- Call storefront revalidation: POST [STOREFRONT_URL]/api/revalidate
-  Body: { secret: REVALIDATION_SECRET, path: /products/[handle] }
-  Also revalidate the collection: { path: /collections/[collection.handle] }
+  POST [STOREFRONT_URL]/api/revalidate with body { secret: REVALIDATION_SECRET, path: /products/[handle] }
+  Also revalidate: { path: /collections/[collection.handle] }
 
 Ref: NewDocs/KNOWN-ISSUES.md "Algolia Search Products Not Appearing" before writing event names.
 Update STATUS.md when done.
@@ -1248,20 +1508,30 @@ Update STATUS.md when done.
 #### Build Low Stock Alert Subscriber
 ```
 @backend-specialist Build backend/src/subscribers/low-stock.ts.
+Ref: NewDocs/MEDUSA-V2-PATTERNS.md for correct v2 subscriber pattern.
+Ref: NewDocs/16-email-templates-spec.md §6 for template spec, deduplication logic, and variable shapes.
 Event: check MedusaJS v2 docs for the exact inventory low stock event name.
 Document the actual event name in NewDocs/KNOWN-ISSUES.md if different from expected.
 
 Action: Send alert email via Resend to ADMIN_EMAIL env var.
-Create template: backend/src/emails/LowStockAlert.tsx
-Content: Product name, variant title, SKU, current quantity, "Reorder needed"
-Subject: "⚠️ Low Stock Alert: [product title] — [variant title]"
+
+Create template: backend/src/emails/LowStockAlertEmail.tsx
+Simplified layout (no full brand chrome — just functional alert).
+Content: product_title, variant_title, SKU, inventory_quantity, threshold (3), admin link
+
+Subject: "[LOW STOCK] [product_title] — [inventory_quantity] units remaining"
+
+Deduplication: use Redis with key "low-stock-alert:[sku]", TTL 24 hours (86400 seconds)
+  If key exists → skip sending (already alerted within 24h)
+  If key missing → send email, then set Redis key with TTL
+
 Update STATUS.md when done.
 ```
 
 #### Build Fulfillment Workflow
 ```
 @backend-specialist Build backend/src/workflows/fulfillment-workflow.ts.
-MedusaJS v2 Workflow pattern (Ref: NewDocs/MEDUSA-V2-PATTERNS.md).
+Ref: NewDocs/MEDUSA-V2-PATTERNS.md for correct v2 Workflow pattern.
 
 Steps in order:
 1. validateOrderStep({ orderId }):
@@ -1313,7 +1583,7 @@ POST handler for on-demand ISR cache invalidation.
 6. Return: { revalidated: true, paths: [...] }
 
 Also create a revalidateAll helper: revalidate /, all collection paths, all affected product paths.
-This endpoint is called by algolia-sync subscriber.
+This endpoint is called by the algolia-sync subscriber after every product update.
 Update STATUS.md when done.
 ```
 
@@ -1336,7 +1606,7 @@ Ref: NewDocs/02-user-stories-and-acceptance-criteria.md US-016.
 2. Create apps/storefront/app/sitemap.ts (Next.js dynamic sitemap):
    - Fetch all published products → generate /products/[handle] URLs
    - Fetch all collections → generate /collections/[handle] URLs
-   - Static pages: /, plus any informational pages
+   - Static pages: /
    - Priority: homepage (1.0), collections (0.8), products (0.7)
    - changefreq: weekly for products, monthly for collections
 
@@ -1360,7 +1630,7 @@ Check these pages:
 For each page verify:
 1. Unique <title> (not duplicate across pages)
 2. <meta name="description"> (150-160 chars, includes keywords)
-3. Open Graph: og:title, og:description, og:image (Cloudinary URL), og:url
+3. Open Graph: og:title, og:description, og:image (Cloudinary URL via cloudinaryUrl with og_image preset), og:url
 4. Canonical URL: <link rel="canonical" href="..."> (no trailing slashes, no query params)
 5. JSON-LD Product schema on PDP: validate at https://search.google.com/test/rich-results
 6. JSON-LD BreadcrumbList on PLP and PDP
@@ -1437,7 +1707,7 @@ Run:
   git log --all --full-history -- ".env"
 
 Check for patterns: API keys, passwords, connection strings, JWT secrets.
-If any found: document the exact commit, rotate the exposed secret immediately, 
+If any found: document the exact commit, rotate the exposed secret immediately,
 then consider using BFG Repo Cleaner or git filter-branch to remove from history.
 Update KNOWN-ISSUES.md with findings.
 ```
@@ -1492,13 +1762,14 @@ Run on:
 3. /products/[handle] (PDP)
 
 For each failure:
-- LCP > 2.5s: check priority loading on hero/product images, Cloudinary CDN, ISR cache
-- CLS > 0.1: find elements without explicit dimensions (Image width/height, font swap)
+- LCP > 2.5s: check priority loading on hero/product images (priority prop + preload),
+  Cloudinary CDN delivery, ISR cache hit rate
+- CLS > 0.1: find elements without explicit dimensions (always set width+height on next/image,
+  reserve space for fonts with font-display: swap)
 - Large bundle: run @next/bundle-analyzer, identify and code-split large imports
 
 Run bundle analyzer:
   cd apps/storefront && ANALYZE=true pnpm build
-  (requires @next/bundle-analyzer in next.config.ts)
 
 Target: initial JS bundle < 200KB (gzipped).
 Document all fixes in KNOWN-ISSUES.md.
@@ -1511,9 +1782,7 @@ Update STATUS.md when done.
 Install @next/bundle-analyzer if not already:
   pnpm add -D @next/bundle-analyzer
 
-Add to apps/storefront/next.config.ts:
-  const withBundleAnalyzer = require('@next/bundle-analyzer')({ enabled: process.env.ANALYZE === 'true' })
-  module.exports = withBundleAnalyzer({ /* existing config */ })
+Add to apps/storefront/next.config.ts if not already configured in the scaffold step.
 
 Run: ANALYZE=true pnpm build
 
@@ -1561,19 +1830,20 @@ Update STATUS.md when done.
 @devops-engineer Configure all Vercel production environment variables.
 In Vercel project settings → Environment Variables, add ALL from .env.example.
 
-Critical to verify (check against NewDocs/04-system-architecture.md section 9):
+Critical to verify:
 Public (NEXT_PUBLIC_*):
-  NEXT_PUBLIC_MEDUSA_BACKEND_URL = https://api.shree-furniture.in
-  NEXT_PUBLIC_RAZORPAY_KEY_ID = rzp_live_... (live key, NOT test)
-  NEXT_PUBLIC_ALGOLIA_APP_ID = ...
-  NEXT_PUBLIC_ALGOLIA_SEARCH_KEY = ... (read-only search key)
-  NEXT_PUBLIC_POSTHOG_KEY = ...
-  NEXT_PUBLIC_SENTRY_DSN = ...
+  NEXT_PUBLIC_MEDUSA_BACKEND_URL  = https://api.shree-furniture.in
+  NEXT_PUBLIC_RAZORPAY_KEY_ID     = rzp_live_... (live key, NOT test)
+  NEXT_PUBLIC_ALGOLIA_APP_ID      = ...
+  NEXT_PUBLIC_ALGOLIA_SEARCH_KEY  = ... (read-only search key)
+  NEXT_PUBLIC_ALGOLIA_INDEX_NAME  = shree_furniture_products
+  NEXT_PUBLIC_POSTHOG_KEY         = ...
+  NEXT_PUBLIC_SENTRY_DSN          = ...
+  NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME = ...
 
 Server-only (no NEXT_PUBLIC_):
-  RAZORPAY_WEBHOOK_SECRET = ...
-  REVALIDATION_SECRET = ...
-  DATABASE_URL = ... (if any server-side DB calls)
+  RAZORPAY_WEBHOOK_SECRET   = ...
+  REVALIDATION_SECRET       = ...
 
 Trigger a production deploy and verify:
 - https://shree-furniture.in loads
@@ -1591,15 +1861,22 @@ Update STATUS.md when done.
 In Railway project → Variables, add all backend env vars.
 
 Verify these are set with PRODUCTION values (not sandbox/test):
-  DATABASE_URL = Neon.tech production connection string
-  REDIS_URL = Upstash production connection string
-  RAZORPAY_SECRET = rzp_live secret (NOT rzp_test_)
-  RAZORPAY_WEBHOOK_SECRET = production webhook secret
-  CLOUDINARY_API_SECRET = ...
-  ALGOLIA_WRITE_API_KEY = ...
-  RESEND_API_KEY = ...
-  JWT_SECRET = secure random 64-char string (generate: openssl rand -hex 32)
-  COOKIE_SECRET = secure random 64-char string
+  DATABASE_URL              = Neon.tech production connection string
+  REDIS_URL                 = Upstash production connection string
+  RAZORPAY_SECRET           = rzp_live secret (NOT rzp_test_)
+  RAZORPAY_WEBHOOK_SECRET   = production webhook secret
+  CLOUDINARY_CLOUD_NAME     = ...
+  CLOUDINARY_API_KEY        = ...
+  CLOUDINARY_API_SECRET     = ...
+  ALGOLIA_WRITE_API_KEY     = ...
+  ALGOLIA_INDEX_NAME        = shree_furniture_products
+  RESEND_API_KEY            = ...
+  FROM_ADDRESS              = orders@shree-furniture.in
+  ADMIN_EMAIL               = admin@shree-furniture.in
+  JWT_SECRET                = secure random 64-char string (generate: openssl rand -hex 32)
+  COOKIE_SECRET             = secure random 64-char string
+  STOREFRONT_URL            = https://shree-furniture.in
+  REVALIDATION_SECRET       = (must match Vercel value exactly)
 
 After deploy:
 1. Run npx medusa db:migrate on production
@@ -1614,14 +1891,16 @@ Update STATUS.md when done.
 @devops-engineer @security-auditor Verify the Razorpay webhook in production.
 1. In Razorpay Dashboard → Settings → Webhooks:
    - URL: https://shree-furniture.in/api/webhooks/razorpay
-   - Events: payment.captured, payment.failed
+   - Events: payment.captured, payment.failed, refund.created, refund.failed
    - Secret: must match RAZORPAY_WEBHOOK_SECRET in Vercel env vars
 
-2. Trigger a test payment via Razorpay test mode (use test card)
+2. Trigger a test payment via Razorpay test mode (use test card 4111 1111 1111 1111)
 3. Verify in Vercel logs: webhook received, HMAC verified, order created
 4. Verify no duplicate orders created on retry
+5. Trigger a test refund and verify refund confirmation email is received
 
 Also verify the webhook endpoint is IP-restricted to Razorpay IPs if possible.
+Ref: NewDocs/14-razorpay-integration-spec.md §6 for test credentials.
 Ref: NewDocs/KNOWN-ISSUES.md "Duplicate Order Creation" for idempotency check.
 Update STATUS.md when done.
 ```
@@ -1634,7 +1913,8 @@ Ref: NewDocs/10-development-phases.md section 7.
 Verify each item and report ✅ or ❌:
 - [ ] Full purchase flow: browse → cart → checkout → Razorpay (UPI + Card) → confirmation email
 - [ ] Order confirmation email received within 2 minutes
-- [ ] Admin can publish product with images in < 5 minutes
+- [ ] Refund flow tested: refund initiated in Admin → refund email received by customer
+- [ ] Admin can publish product with Cloudinary images in < 5 minutes
 - [ ] LCP < 2.5s on 4G mobile simulation (Lighthouse)
 - [ ] CLS < 0.1 (no layout shifts)
 - [ ] INP < 200ms
@@ -1649,6 +1929,9 @@ Verify each item and report ✅ or ❌:
 - [ ] Sentry receiving errors in production project
 - [ ] PostHog receiving events in production project
 - [ ] pnpm audit shows no high/critical vulnerabilities
+- [ ] Algolia search returning correct results with deduplication (one product per result)
+- [ ] Indian price formatting correct on all pages (₹1,00,000 not ₹100,000)
+- [ ] All forms validate Indian phone (10 digits) and PIN (6 digits) correctly
 
 For any ❌ item: fix it before launch.
 ```
@@ -1662,9 +1945,15 @@ For any ❌ item: fix it before launch.
 @test-engineer Write Vitest tests for apps/storefront/lib/utils/price.ts.
 Ref: NewDocs/12-testing-strategy.md section 3.1 for exact test cases.
 Must cover:
-- formatPrice(4999900) → "₹49,999", formatPrice(100) → "₹1", formatPrice(0) → "₹0"
+- formatPrice(4999900) → "₹49,999"
+- formatPrice(10000000) → "₹1,00,000" (Indian numbering system, NOT ₹100,000)
+- formatPrice(100) → "₹1"
+- formatPrice(0) → "₹0"
 - getDiscountPercent(5999900, 4999900) → 17, no discount → 0
-- calculateGST: 12% inclusive extraction, 18% inclusive extraction, edge cases
+- calculateIncludedGST: 18% inclusive extraction → gstAmount + baseAmount = total
+  formula: totalPaise × (rate / (100 + rate))
+- normalizePhone("+919876543210") → "9876543210"
+- normalizePhone("9876543210") → "9876543210"
 File: apps/storefront/lib/utils/price.test.ts
 ```
 
@@ -1685,6 +1974,7 @@ File: apps/storefront/store/cart-store.test.ts
 ```
 @test-engineer Write Vitest tests for the Razorpay HMAC verification logic.
 Ref: NewDocs/12-testing-strategy.md section 3.3.
+Ref: NewDocs/14-razorpay-integration-spec.md §4 for the verifyRazorpaySignature implementation.
 Extract verifyRazorpaySignature() as a pure function for testability.
 Must cover:
 - Valid signature → returns true
@@ -1699,12 +1989,15 @@ File: apps/storefront/app/api/webhooks/razorpay/verify.test.ts
 ```
 @test-engineer Write Vitest tests for the AddressForm Zod schema.
 Ref: NewDocs/12-testing-strategy.md section 3.4 for exact test cases.
+Ref: NewDocs/17-india-specific-guide.md §2 and §3 for validation rules.
 Must cover:
 - Valid address → passes validation
-- Invalid PIN code (< 6 digits, > 6 digits, letters) → fails
-- Invalid phone (< 10 digits, starts with 1-5) → fails
+- Invalid PIN code (5 digits, 7 digits, letters, starts with 0 or 9) → fails
+- Invalid phone (9 digits, 11 digits, starts with 1–5) → fails
+- Phone with +91 prefix → normalizePhone strips it, then passes
 - Invalid email format → fails
 - Missing required fields → fails with correct field path
+- State not in INDIAN_STATES list → fails
 File: apps/storefront/components/checkout/AddressForm.test.ts
 ```
 
@@ -1750,11 +2043,13 @@ Flow:
 3. Select first available variant (colour swatch)
 4. Click add-to-cart → cart-drawer opens, item visible
 5. Click proceed-to-checkout → /checkout
-6. Fill address form with test data
+6. Fill address form with test data:
+   fullName: "Test User", phone: "9876543210", address1: "123 Test Street",
+   address2: "Test Area", city: "Mumbai", state: "Maharashtra", postalCode: "400001"
 7. Click continue-to-shipping → /checkout/shipping
 8. Select standard shipping → click continue-to-payment → /checkout/payment
 9. Verify order total shows GST note
-10. Click place-order → mock Razorpay (use Playwright route intercept)
+10. Click place-order → mock Razorpay (use Playwright route intercept on checkout.razorpay.com)
 11. Verify redirect to /order/confirm/[id]
 12. Verify order-confirmation-id is visible
 File: e2e/purchase-flow.spec.ts
@@ -1809,16 +2104,15 @@ Files to check:
 Last change made: [what you last modified]
 Error message: [paste full error if any]
 Expected: [what should happen]
-Actual: [what is happening]
-Ref: NewDocs/KNOWN-ISSUES.md first — may already be documented.
+Actual: [what actually happened]
+Read NewDocs/KNOWN-ISSUES.md first — this issue may already be documented.
 ```
 
-#### Debug MedusaJS Subscriber Not Firing
+#### Debug Subscriber Not Firing
 ```
-@debugger A MedusaJS v2 subscriber is not firing.
-Subscriber: backend/src/subscribers/[filename].ts
-Event it should listen to: [event name]
-Expected: [what should happen]
+@debugger A backend subscriber is not firing.
+Subscriber file: [path]
+Event expected: [event name]
 Actual: [nothing happens — check Railway logs first]
 Check Railway logs for: "subscriber" errors, migration errors, startup errors
 Ref: NewDocs/KNOWN-ISSUES.md "Subscriber Does Not Fire on First Deploy"
@@ -1839,11 +2133,27 @@ Ref: NewDocs/KNOWN-ISSUES.md "ISR Page Shows Stale Product After Admin Update"
 ```
 @debugger Razorpay payment is [failing / not redirecting / creating duplicate orders].
 Files:
-  apps/storefront/components/checkout/PaymentStep.tsx
+  apps/storefront/components/checkout/PaymentStep.tsx (or checkout/payment/page.tsx)
   apps/storefront/app/api/webhooks/razorpay/route.ts
 Environment: [sandbox / production]
 Error: [paste Razorpay error code or Vercel function log]
+Ref: NewDocs/14-razorpay-integration-spec.md §5 for common mistakes table.
 Ref: NewDocs/KNOWN-ISSUES.md — check Razorpay section first.
+```
+
+#### Debug Algolia Search Issue
+```
+@debugger Algolia search is [returning no results / showing wrong products / not updating].
+Files:
+  backend/src/subscribers/algolia-sync.ts
+  backend/src/scripts/algolia-init.ts
+  apps/storefront/lib/algolia/client.ts
+Check:
+- Algolia dashboard: does the index shree_furniture_products have records?
+- Are objectIDs set to variant.id (not product.id)?
+- Is distinct:true and attributeForDistinct:"product_id" configured?
+Ref: NewDocs/15-algolia-schema.md for the correct schema.
+Ref: NewDocs/KNOWN-ISSUES.md "Algolia Search Products Not Appearing"
 ```
 
 #### Debug TypeScript Strict Error
@@ -1944,7 +2254,6 @@ End of session. Before updating docs, do a full audit:
 6. Update REJECTIONS.md if I rejected anything
 
 Show me a summary of all changes before committing.
-
 ```
 
 ### Session End With Note for Next Session
@@ -1973,13 +2282,16 @@ Show me a summary of all changes before committing.
 | ❌ Don't say | ✅ Say instead |
 |---|---|
 | `"Build me a backend"` | `"@backend-specialist Build [specific file]"` |
-| `"Make a nice UI"` | `"@frontend-specialist Build [Component] per NewDocs/01 section [X]"` |
+| `"Make a nice UI"` | `"@frontend-specialist Build [Component] per NewDocs/design-reference.md and NewDocs/01 section [X]"` |
 | `"Use Prisma for the database"` | Never override the ORM — it's fixed in DECISIONS.md |
-| `"Add reviews while you're here"` | Reviews = Phase 3. Check doc 09 before expanding scope |
+| `"Add reviews while you're here"` | Reviews are out of scope. Check doc 09 before expanding scope |
 | `"Just use any type here"` | `"Use unknown + type guard"` |
 | `"Store the token in localStorage"` | HTTP-only cookies only. ADR-009. |
 | `"Use floats for price"` | Paise integers only. ADR-007. |
 | `"Build a custom cart"` | Medusa Cart Module handles this. Never rebuild it. |
+| `"objectID = product.id"` | objectID = variant.id — one Algolia record per variant (NewDocs/15) |
+| `"Store phone as +91XXXXXXXXXX"` | Store 10 digits only, no prefix (NewDocs/17) |
+| `"Format price with en-US"` | Use formatPrice() with en-IN locale always (NewDocs/17) |
 | Long vague descriptions | Short + file path + NewDocs reference |
 | Forgetting "Update STATUS.md" | Always append it to build prompts |
 
@@ -2003,26 +2315,36 @@ Show me a summary of all changes before committing.
 ### Key NewDocs References
 
 ```
-01 — product-requirements.md      Feature specs + acceptance criteria
-03 — information-architecture.md  URL structure, page inventory, route groups
-04 — system-architecture.md       Rendering strategy (ISR/CSR/SSR), data flows
-05 — database-schema.md           All table definitions (check before any DB work)
-06 — api-contracts.md             All Medusa endpoints + request/response shapes
-07 — monorepo-structure.md        File locations, package structure
-08 — cart-pricing-engine-spec.md  Cart lifecycle, pricing, tax, shipping rules
-09 — engineering-scope-definition.md  What NOT to build (check before starting any feature)
-10 — development-phases.md        Phase milestones, acceptance criteria, DoD checklist
-12 — testing-strategy.md          What to test, test file locations, coverage targets
-MEDUSA-V2-PATTERNS.md             v2 SDK methods, subscriber/workflow/module patterns
-KNOWN-ISSUES.md                   Gotchas log — always check before debugging
-CLAUDE.md                         Hard rules (auto-loaded every session)
-STATUS.md                         Current build state (read at session start, update at end)
-PREFERENCES.md                    Your design taste — UI agents read before generating any UI
-REJECTIONS.md                     Never-again log — agents read before suggesting any pattern
-STACK-CHANGES.md                  Mid-project tech changes — entries here supersede CLAUDE.md
+01 — product-requirements.md         Feature specs + acceptance criteria per page
+03 — information-architecture.md     URL structure, page inventory, route groups
+04 — system-architecture.md          Rendering strategy (ISR/CSR/SSR), data flows
+05 — database-schema.md              All table definitions (check before any DB work)
+06 — api-contracts.md                All Medusa endpoints + request/response shapes
+07 — monorepo-structure.md           File locations, package structure, folder tree
+08 — cart-pricing-engine-spec.md     Cart lifecycle, pricing, tax, shipping rules
+09 — engineering-scope-definition.md What NOT to build — check before any new feature
+10 — development-phases.md           Phase milestones, acceptance criteria, DoD checklist
+12 — testing-strategy.md             What to test, test file locations, coverage targets
+13 — design-system.md                Component tokens, animation spec, layout grid
+14 — razorpay-integration-spec.md    Razorpay config, HMAC, idempotency, refund flow
+15 — algolia-schema.md               Index schema (per-variant), sync events, settings, replicas
+16 — email-templates-spec.md         All 5 email templates — subjects, variables, layout
+17 — india-specific-guide.md         Phone/PIN validation, INDIAN_STATES, GST, en-IN formatting
+18 — cloudinary-guide.md             Folder structure, transformation presets, Next.js loader
+design-reference.md                  IKEA-inspired visual language — read before any frontend work
+MEDUSA-V2-PATTERNS.md                v2 SDK, subscriber/workflow/module patterns
+KNOWN-ISSUES.md                      Gotchas log — always check before debugging
+CLAUDE.md                            Hard rules (auto-loaded every session)
+STATUS.md                            Current build state (read at session start, update at end)
+PREFERENCES.md                       Your design taste — UI agents read before generating any UI
+REJECTIONS.md                        Never-again log — agents read before suggesting any pattern
+STACK-CHANGES.md                     Mid-project tech changes — entries here supersede CLAUDE.md
 ```
 
 ---
 
-*Shree Furniture | Prompt Guide v2.0 — Complete Start-to-Deployment | Q1 2026*
+*Shree Furniture | Prompt Guide v2.1 — Complete Start-to-Deployment | Q1 2026*
 *Place at: `shreefurniture-pro/PROMPT-GUIDE-v2.md` (monorepo root)*
+*v2.1 changes from v2.0: Razorpay modal config corrected (notes, prefill, theme colour), Algolia*
+*updated to per-variant indexing with full field list and virtual replicas, 6 new NewDocs refs added*
+*throughout, 4 new prompts added (Cloudinary helpers, refund email, Algolia debug, refund checklist item).*
