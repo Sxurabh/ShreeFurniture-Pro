@@ -820,11 +820,7 @@ git push origin feat/product-card
 If you're unsure how to resolve a conflict, paste it into Antigravity:
 ```
 I have a merge conflict in [filename]. Here is the conflicted section:
-<<<<<<< HEAD
 [your code]
-=======
-[incoming code]
->>>>>>> phase/2-storefront
 Which version is correct? Write me the resolved version.
 ```
 
