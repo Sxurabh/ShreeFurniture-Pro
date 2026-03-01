@@ -15,7 +15,7 @@
    - 2b. Backend Live (Week 2)
    - 2c. Third-Party Services Setup
 3. [Phase 2 — Storefront Core](#3-phase-2--storefront-core)
-   - 3a. Layouts & Shared Infrastructure
+   - 3a. Lib, Hooks & API Client
    - 3b. Shared Components
    - 3c. Homepage
    - 3d. Product Pages (PLP + PDP)
@@ -44,11 +44,12 @@
 ### Standard Session Start
 ```
 Read these files before doing anything:
-1. STATUS.md — current build state and what's already been built
-2. CLAUDE.md — hard technical rules
-3. PREFERENCES.md — my design preferences (override agent defaults for UI decisions)
-4. REJECTIONS.md — patterns I've explicitly rejected (never suggest these again)
-5. STACK-CHANGES.md — if it has entries, those supersede CLAUDE.md tech stack table
+
+1. STATUS.md        ← What's already built
+2. PREFERENCES.md   ← Design taste overrides
+3. REJECTIONS.md    ← Never-suggest-again log
+4. STACK-CHANGES.md ← Tech overrides (check BEFORE reading CLAUDE's tech stack)
+5. CLAUDE.md        ← Hard rules (now informed by any stack changes)
 
 Tell me:
 - Current phase and what was last worked on
@@ -1930,22 +1931,37 @@ Value type: [public browser-safe / server-only secret]
 
 ### Standard Session End
 ```
-End of session — update these files:
-1. STATUS.md — mark completed items ✅, in-progress items 🚧 with a state note
-2. KNOWN-ISSUES.md — add any unexpected behavior discovered today
-3. PREFERENCES.md — add any design preference I expressed today (colour, spacing, animation, copy)
-4. REJECTIONS.md — add anything I reviewed and explicitly didn't like today
-(If nothing changed in files 2–4, that's fine — just say so)
+End of session. Before updating docs, do a full audit:
+
+1. List every file you created or modified this session (full paths)
+2. For each file: is it complete and functional, or partial?
+3. Now update STATUS.md:
+   - Mark completed items ✅ with a Notes entry describing the implementation
+   - Mark partial items 🚧 with exactly what's left to do
+   - If anything was started but not in STATUS.md's table, flag it
+4. Update KNOWN-ISSUES.md if any unexpected behavior was found
+5. Update PREFERENCES.md if I expressed any design preference
+6. Update REJECTIONS.md if I rejected anything
+
+Show me a summary of all changes before committing.
+
 ```
 
 ### Session End With Note for Next Session
 ```
-End of session — update these files:
-1. STATUS.md — mark [component] as ✅ DONE
-   Add note: "[what the next session needs to know about this implementation]"
-2. PREFERENCES.md — if I confirmed a design decision today, add it to the relevant section
-3. REJECTIONS.md — if I rejected an approach today, log it so it never recurs
-4. KNOWN-ISSUES.md — any new gotchas discovered
+End of session. Before updating docs, do a full audit:
+
+1. List every file you created or modified this session (full paths)
+2. For each file: is it complete and functional, or partial?
+3. Now update STATUS.md:
+   - Mark [component] as ✅ DONE with a Notes entry
+   - Add note: "[what the next session needs to know about this implementation]"
+   - Mark partial items 🚧 with exactly what's left to do
+4. Update KNOWN-ISSUES.md if any unexpected behavior was found
+5. Update PREFERENCES.md if I confirmed a design decision today
+6. Update REJECTIONS.md if I rejected an approach today
+
+Show me a summary of all changes before committing.
 ```
 
 ---
@@ -2009,4 +2025,4 @@ STACK-CHANGES.md                  Mid-project tech changes — entries here supe
 ---
 
 *Shree Furniture | Prompt Guide v2.0 — Complete Start-to-Deployment | Q1 2026*
-*Place at: `shreefurniture-pro/PROMPT-GUIDE.md` (monorepo root)*
+*Place at: `shreefurniture-pro/PROMPT-GUIDE-v2.md` (monorepo root)*

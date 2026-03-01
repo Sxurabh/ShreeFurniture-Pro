@@ -27,7 +27,7 @@ This index is designed so AI agents (including Antigravity agents) can:
 4. `STACK-CHANGES.md` — if entries exist, they update the tech stack table in CLAUDE.md
 
 **Then NewDocs/ (in this order):**
-5. `CLAUDE.md` — project identity, hard rules, tech stack guardrails
+5. Root `CLAUDE.md` — project identity, hard rules, tech stack guardrails (auto-loaded by Antigravity)
 6. `DECISIONS.md` — ADR rationale and non-negotiable technical choices
 7. `09-engineering-scope-definition.md` — what to build vs configure vs explicitly avoid
 8. `10-development-phases.md` — delivery sequence and phase boundaries

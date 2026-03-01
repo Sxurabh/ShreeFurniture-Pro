@@ -2,11 +2,15 @@
 ## Full alignment check + workflow confirmation
 ### Date: March 2026
 
+> ⚠️ **HISTORICAL DOCUMENT — ALL ISSUES RESOLVED**
+> This audit was completed in March 2026. All 6 issues identified below have been fixed.
+> This file is kept for reference only. Do not re-apply these fixes.
+
 ---
 
 ## ✅ Overall Verdict
 
-The project is **well-structured and 95% aligned.** Found 6 issues total — 1 critical fix required before you start building, 1 critical action item, and 4 minor fixes. All are documented below with exact actions.
+The project is **well-structured and 95% aligned.** Found 6 issues total — all have been resolved. See below for what was fixed.
 
 ---
 
@@ -254,11 +258,19 @@ Use Prompt #84 from PROMPT-GUIDE-v2.md (Deploy to Vercel) and Prompt #85 (Deploy
 
 ### Step 4 — Session End (Every Session)
 ```
-End of session — update files:
-1. STATUS.md — mark completed items ✅, in-progress items 🚧
-2. PREFERENCES.md — add any design preference I confirmed today
-3. REJECTIONS.md — add anything I reviewed and didn't like today
-4. KNOWN-ISSUES.md — add any unexpected things we discovered
+End of session. Before updating docs, do a full audit:
+
+1. List every file you created or modified this session (full paths)
+2. For each file: is it complete and functional, or partial?
+3. Now update STATUS.md:
+   - Mark completed items ✅ with a Notes entry describing the implementation
+   - Mark partial items 🚧 with exactly what's left to do
+   - If anything was started but not in STATUS.md's table, flag it
+4. Update KNOWN-ISSUES.md if any unexpected behavior was found
+5. Update PREFERENCES.md if I expressed any design preference
+6. Update REJECTIONS.md if I rejected anything
+
+Show me a summary of all changes before committing.
 ```
 
 ---

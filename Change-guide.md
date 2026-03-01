@@ -437,11 +437,10 @@ Read STATUS.md and CLAUDE.md first.
 ```
 Read these files before doing anything:
 1. STATUS.md — current build state
-2. CLAUDE.md — hard rules
-3. PREFERENCES.md — my design preferences (these override agent defaults)
-4. REJECTIONS.md — patterns I've explicitly rejected (never suggest these)
-5. STACK-CHANGES.md — if it has entries, those supersede CLAUDE.md tech stack
-6. NewDocs/README.md — loading order and conflict resolution policy
+2. PREFERENCES.md — my design preferences (these override agent defaults)
+3. REJECTIONS.md — patterns I've explicitly rejected (never suggest these)
+4. STACK-CHANGES.md — if it has entries, those supersede CLAUDE.md tech stack
+5. CLAUDE.md — hard rules
 
 Tell me: current phase, last completed item, any active rejections or stack changes I should know about.
 Do not write any code yet.
