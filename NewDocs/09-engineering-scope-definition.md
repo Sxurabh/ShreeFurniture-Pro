@@ -2,6 +2,7 @@
 ## Shree Furniture | E-Commerce Platform
 
 > **Version:** 1.0 | **Purpose:** Define exactly what engineers build, extend, configure vs. leave to platform defaults
+> **When to read:** Before starting any new feature or suggesting changes that might expand scope. AI agents must read this before proposing out-of-scope work.
 
 ---
 

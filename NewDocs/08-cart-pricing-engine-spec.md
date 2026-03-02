@@ -2,6 +2,8 @@
 ## Shree Furniture | E-Commerce Platform
 
 > **Version:** 1.0 | **Scope:** Cart lifecycle, pricing rules, tax logic, discount handling
+> **Purpose:** Define how carts move through their lifecycle and exactly how totals, taxes, and shipping are computed.
+> **When to read:** Before changing cart behaviour, pricing, discounts, shipping rules, or checkout flows. AI agents must read this before touching any cart or pricing code.
 
 ---
 

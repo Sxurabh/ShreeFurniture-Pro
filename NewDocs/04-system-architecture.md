@@ -2,7 +2,8 @@
 ## Shree Furniture | E-Commerce Platform
 
 > **Version:** 1.0 | **Status:** Active
-> This document was converted from diagram format to text + Mermaid for AI readability.
+> **Purpose:** Describe how the frontend, backend, and third-party services fit together, including runtime boundaries and data flows.
+> **When to read:** Before making infrastructure, rendering, or cross-service integration decisions. AI agents should read this before generating code that touches multiple systems or changes deployment shape.
 
 ---
 

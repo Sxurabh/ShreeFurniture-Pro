@@ -1,6 +1,11 @@
 # MY PHASE-BY-PHASE DAILY CODING GUIDE — Shree Furniture
-## Complete Session Guide | Phase 1 → Phase 4 | Every Prompt Covered
+## Roadmap & Milestones | Phase 1 → Phase 4 | Every Prompt Covered
 ### v1.0 — March 2026 | Aligned with PROMPT-GUIDE-v2.md
+
+> **Who this guide is for & when to use it:**
+> - Use this file when you want the **big picture roadmap**: what each phase does, which branch to work on, and which prompts to run in what order.
+> - Use `MY-DAILY-CODING-GUIDE.md` for **day-to-day situations** (normal session, rejection, stack change, debugging, PRs); this file tells you *what comes next in the phase*.
+> - If anything in this guide ever conflicts with `NewDocs/README.md` or any numbered `NewDocs/0X-*.md` spec, **treat NewDocs as the canonical source of truth**.
 
 ---
 

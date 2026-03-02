@@ -34,6 +34,12 @@ Shree Furniture is an India-first, IKEA-inspired online furniture destination de
 | Mobile Lighthouse Score | ≥ 90 |
 | Payment success rate | ≥ 97% |
 
+### 3.1 Qualitative Experience Goals
+
+- Customers consistently describe the site as **“trustworthy” and “easy to use”** in support conversations and surveys.
+- First-time visitors can find a product they like and understand price, delivery, and returns **without contacting support**.
+- All launch content (homepage, PLPs, PDPs, policy pages) reads as **one coherent brand voice** — warm, premium, and clear.
+
 ---
 
 ## 4. Feature Requirements
@@ -234,5 +240,42 @@ The following are explicitly deferred to Phase 2–3:
 - Gift messaging
 
 ---
+
+## 7. Launch Legal & Content Checklist (MVP)
+
+All items in this section must be in place and reviewed before merging `develop` → `main` for the first production launch.
+
+### 7.1 Mandatory Pages & Policies
+
+- **Terms & Conditions** page:
+  - Covers ordering, payments, cancellations, refunds, warranty, and limitation of liability.
+- **Privacy Policy** page:
+  - Explains what data is collected, how it is used, retention, and third-party tools (PostHog, Sentry, Razorpay, Resend, Algolia, Cloudinary).
+- **Returns & Refunds Policy** page:
+  - Clear return window, condition requirements, refund timelines, and who pays for return shipping.
+- **Shipping & Delivery Policy** page:
+  - Serviceable regions (India focus), delivery timelines by region, free-shipping threshold, and any surcharges.
+- **Contact / Support** page:
+  - At minimum: email address, contact form or WhatsApp link, business hours, and response-time expectation.
+
+### 7.2 Content QA Before Launch
+
+- Homepage:
+  - Copy reviewed for grammar and tone; hero and trust signals match actual policies.
+  - All primary CTAs point to valid, indexable pages.
+- PLPs / PDPs:
+  - No lorem ipsum or placeholder copy.
+  - Dimensions, materials, and prices match real inventory data.
+  - At least one high-quality image per product, served via Cloudinary.
+- Account / Checkout:
+  - Error messages are understandable and polite; no raw error codes shown to users.
+  - Any mention of EMI, returns, or shipping matches the legal policy pages.
+
+### 7.3 Compliance & Search Basics
+
+- All policy pages are **linked in the footer** and crawlable (no `noindex`).
+- `robots.txt` does **not** disallow policy pages.
+- PDPs pass Google Rich Results tests for Product schema (price, availability, URL).
+- Site includes a visible **cookie / tracking notice** if required for your jurisdiction or analytics usage.
 
 *Owner: Product Lead | Shree Furniture | v1.0 — Q1 2026*

@@ -2,6 +2,8 @@
 ## Shree Furniture | E-Commerce Platform
 
 > **Version:** 1.0 | **Engine:** PostgreSQL 16 | **ORM:** MikroORM (via MedusaJS v2)
+> **Purpose:** Define how commerce data is structured in PostgreSQL, including tables, relationships, and key constraints.
+> **When to read:** Before writing any custom queries, migrations, or Medusa module extensions. AI agents should read this before changing entities or adding persistence logic.
 
 ---
 

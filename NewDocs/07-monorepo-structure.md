@@ -2,6 +2,8 @@
 ## Shree Furniture | E-Commerce Platform
 
 > **Version:** 1.0 | **Tooling:** pnpm workspaces + Turborepo
+> **Purpose:** Document how the repository is organised: apps, backend, shared packages, and infra folders.
+> **When to read:** Before adding new folders, moving files, or configuring build/dev scripts. AI agents should read this before proposing new packages or changing file locations.
 
 ---
 

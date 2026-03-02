@@ -2,6 +2,8 @@
 ## Shree Furniture | E-Commerce Platform
 
 > **Version:** 1.0 | **Format:** As a [persona], I want [action], so that [value]
+> **Purpose:** Capture user stories and acceptance criteria that define what the product must do for each persona.
+> **When to read:** Before designing or implementing a feature, or when you need to confirm what “done” means for a user flow. AI agents should read this before generating UI or API changes tied to a user story.
 
 ---
 

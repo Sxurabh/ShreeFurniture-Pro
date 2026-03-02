@@ -2,6 +2,8 @@
 ## Shree Furniture | E-Commerce Platform
 
 > **Version:** 1.0 | **Scope:** URL structure, navigation hierarchy, page inventory, routing
+> **Purpose:** Define the site map, URL patterns, and navigation hierarchy for the storefront.
+> **When to read:** Before adding or changing routes, navigation, or page layout structure. AI agents should read this before generating new pages or links.
 
 ---
 

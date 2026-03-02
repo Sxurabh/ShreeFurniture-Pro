@@ -4,6 +4,12 @@
 
 ---
 
+> **Who this guide is for & when to use it:**
+> - This is your **primary entry point every day** before you start coding.
+> - Use it to handle **situations** (normal session, “I don’t like this”, save preference, stack change, something is broken, long gap, PRs, end of day).
+> - For the **phase roadmap** (which prompts belong to each phase and branch), use `MY-PHASE-BY-PHASE-GUIDE.md`.
+> - If anything here ever conflicts with `NewDocs/README.md` or any numbered `NewDocs/0X-*.md` spec, **follow NewDocs as the canonical source of truth**.
+>
 > **How this guide works:**
 > Every situation you will ever face has its own section below.
 > Each section tells you exactly which prompts to use from **PROMPT-GUIDE-v2.md** — by section name.
@@ -666,6 +672,81 @@ Add to NewDocs/KNOWN-ISSUES.md:
 git add NewDocs/KNOWN-ISSUES.md
 git commit -m "docs: add [issue title] to KNOWN-ISSUES.md"
 ```
+
+---
+
+## Step E4 — Production Incident & Rollback (Vercel / Railway)
+
+**Use this when a deploy breaks production** (white screen, checkout down, 5xx spike, serious bug).
+
+1. **Capture what broke**
+   - Note the time, URL(s) affected, and what the user sees.
+   - Grab screenshots and copy the exact error message from browser console or logs.
+
+2. **Call the incident prompt in Antigravity**
+
+   Paste and fill in the brackets:
+
+   ```
+   @devops-engineer We have a production incident.
+
+   Environment: [production / preview]
+   Storefront URL: [Vercel URL]
+   Backend URL: [Railway URL]
+
+   Symptom:
+   - [what users see: e.g. white screen on /checkout, 500 on /api/...]
+
+   Timeline:
+   - Last successful deploy: [link to GitHub commit or Vercel/Railway deploy]
+   - First time we saw the issue: [approx time]
+
+   Logs & monitoring:
+   - Sentry issue link(s): [if any]
+   - PostHog / analytics signals: [if relevant]
+   - Railway logs snippet: [paste]
+
+   Goals:
+   1. Identify if this is caused by the latest deploy.
+   2. If yes, guide me to roll back to the last healthy deploy on Vercel and Railway.
+   3. Help me capture a minimal KNOWN-ISSUES.md entry describing symptom, root cause (once known), and fix.
+   4. Confirm any secrets shown in logs are safe; if not, tell me which keys to rotate.
+   ```
+
+3. **Rollback checklist (high level)**
+   - Vercel: open the latest known-good deployment → click **Promote to Production**.
+   - Railway: open the latest known-good deployment or snapshot → **Rollback / Redeploy** to that version.
+   - Verify:
+     - [ ] Homepage loads
+     - [ ] Browse → cart → checkout still works
+     - [ ] Error condition is gone
+
+4. **Security hygiene**
+   - While investigating, **check logs for secrets**:
+     - Access tokens, API keys, webhook secrets, database URLs.
+   - If any secret value was printed or shared:
+     - Rotate the key in the provider dashboard (Razorpay, Resend, Railway, Vercel, etc.).
+     - Update `.env.example`, Vercel, Railway, and GitHub Secrets.
+
+5. **Document the incident**
+   - Add an entry to `NewDocs/KNOWN-ISSUES.md`:
+
+   ```
+   ### [PRODUCTION INCIDENT TITLE]
+   **Symptom:** [what users saw, which URLs]
+   **Root Cause:** [once known]
+   **Fix / Workaround:** [rollback + code fix, or config change]
+   **Affects:** [file paths, env vars, services]
+   **Date Discovered:** [today]
+   **Was Rollback Used?:** [yes/no, which deploy ID]
+   ```
+
+   - Commit the incident note:
+
+   ```bash
+   git add NewDocs/KNOWN-ISSUES.md
+   git commit -m "docs: record production incident — [short title]"
+   ```
 
 ---
 

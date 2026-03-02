@@ -2,6 +2,8 @@
 ## Shree Furniture | E-Commerce Platform
 
 > **Version:** 1.0 | **Base URL:** `https://api.shree-furniture.in` | **Protocol:** REST / JSON
+> **Purpose:** Specify the REST contracts between the storefront and the Medusa backend (paths, payloads, and response shapes).
+> **When to read:** Before calling, changing, or adding any API endpoint in the storefront or backend. AI agents should read this before generating API client code or server handlers.
 
 ---
 
