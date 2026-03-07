@@ -352,7 +352,7 @@ Do not improvise delivery text — use these exact strings for consistency:
 | Context | Copy |
 |---|---|
 | Free shipping threshold | "Free delivery on orders above ₹5,000" |
-| Standard shipping cost | "₹250 shipping" |
+| Standard shipping cost | "₹499 shipping" |
 | Estimated delivery | "7–10 business days" |
 | Delivery note on PDP | "Estimated delivery in 7–10 business days after dispatch" |
 | PIN code note | "Delivering across India" |

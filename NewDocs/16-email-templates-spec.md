@@ -350,7 +350,7 @@ Reset your Shree Furniture password
 ```typescript
 interface PasswordResetProps {
   customer_name: string
-  reset_url: string       // Medusa-generated one-time reset URL (expires in 30 minutes)
+  reset_url: string       // Medusa-generated one-time reset URL (expires in 15 minutes)
 }
 ```
 
@@ -358,7 +358,7 @@ interface PasswordResetProps {
 
 **1. Headline:** "Password reset request"
 
-**2. Body:** "Hi {{customer_name}}, we received a request to reset your password. Click the button below to choose a new one. This link expires in 30 minutes."
+**2. Body:** "Hi {{customer_name}}, we received a request to reset your password. Click the button below to choose a new one. This link expires in 15 minutes."
 
 **3. CTA button:** "Reset My Password" → `{{reset_url}}`
 

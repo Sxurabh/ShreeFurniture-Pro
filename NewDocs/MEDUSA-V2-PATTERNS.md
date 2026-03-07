@@ -255,12 +255,9 @@ import { revalidatePath } from "next/cache"  // ← server action or separate en
 // In production: call the storefront's revalidation API endpoint
 // POST /api/revalidate?secret=REVALIDATION_SECRET&path=/products/{handle}
 await fetch(`${process.env.STOREFRONT_URL}/api/revalidate`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    secret: process.env.REVALIDATION_SECRET,
-    path: `/products/${product.handle}`,
-  }),
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ secret: process.env.REVALIDATION_SECRET, path: `/products/${handle}` })
 })
 ```
 
